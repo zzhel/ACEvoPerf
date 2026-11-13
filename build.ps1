@@ -20,11 +20,32 @@ New-Item -ItemType Directory -Force "$root\dist" | Out-Null
 New-Item -ItemType Directory -Force "$root\build" | Out-Null
 Push-Location "$root\build"
 try {
+    $iconDefines = foreach ($state in @('inactive', 'active')) {
+        $png = [IO.File]::ReadAllBytes("$root\assets\snapshot-$state.png")
+        # Gameface limits image URLs to 2048 characters. Omit the PNG's print-density chunk.
+        $image = [IO.MemoryStream]::new()
+        try {
+            $image.Write($png, 0, 8)
+            for ($offset = 8; $offset -lt $png.Length; $offset += $chunkSize) {
+                if ($png.Length - $offset -lt 12) { throw "Invalid PNG chunk in snapshot-$state.png" }
+                $length = 0L
+                for ($i = 0; $i -lt 4; $i++) { $length = 256 * $length + $png[$offset + $i] }
+                $chunkSize = $length + 12
+                if ($chunkSize -gt $png.Length - $offset) { throw "Invalid PNG chunk in snapshot-$state.png" }
+                $type = [Text.Encoding]::ASCII.GetString($png, $offset + 4, 4)
+                if ($type -ne 'pHYs') { $image.Write($png, $offset, $chunkSize) }
+            }
+            $url = 'data:image/png;base64,' + [Convert]::ToBase64String($image.ToArray())
+            if ($url.Length -ge 2048) { throw "snapshot-$state.png is too large for Gameface's image URL" }
+            '#define ACEVO_SNAPSHOT_' + $state.ToUpperInvariant() + '_URL "' + $url + '"'
+        } finally { $image.Dispose() }
+    }
+    [IO.File]::WriteAllLines("$root\build\snapshot_icons.h", [string[]]$iconDefines, [Text.Encoding]::ASCII)
     & rc.exe /nologo /fo "$root\build\version.res" "$root\src\version.rc"
     if ($LASTEXITCODE -ne 0) { throw "rc.exe failed with $LASTEXITCODE" }
     $sources = Get-ChildItem "$root\src" -Recurse -Filter *.cpp | ForEach-Object { $_.FullName }
     & cl.exe /nologo /O2 /W4 /MT /EHsc /std:c++17 /DUNICODE /D_UNICODE /DWIN32_LEAN_AND_MEAN /DNOMINMAX `
-        /I"$root\include" /I"$root\third_party\directstorage" /Fo"$root\build\\" $sources `
+        /I"$root\include" /I"$root\third_party\directstorage" /I"$root\build" /Fo"$root\build\\" $sources `
         /link /DLL /MACHINE:X64 /DEF:"$root\src\exports.def" /OUT:"$root\dist\dstorage.dll" `
         /IMPLIB:"$root\build\dstorage_proxy.lib" /PDB:"$root\build\dstorage_proxy.pdb" /DEBUG:FULL /OPT:REF /OPT:ICF `
         "$root\build\version.res" kernel32.lib user32.lib

@@ -2,6 +2,7 @@
 #include "acevo/engine/active_reset_session.h"
 #include "acevo/ui/cohtml_hooks.h"
 #include "acevo/core/log.h"
+#include "snapshot_icons.h"
 
 namespace {
 std::atomic<uint64_t> snapshotEpoch{0};
@@ -14,9 +15,8 @@ const char pageScript[] = R"js(
     var active = false;
     var available = false;
     var indicator;
-    // Transparent PNGs with the same R8-style outline mask, one for each state.
-    var inactivePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAABBBAMAAADMCjABAAAAMFBMVEXT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19smuEYJAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAABChJREFUeNrtmM1rXGUUxn93MpM0bYVrsVQaA5EutJt0FEHQRcaPSrHUBEVX1k6hC12UpmJdFDVNly7SUMGFQhPoH9BqC1IoJC4U/KATQaogdJoqWGlhak0Tk0nuz8VkMpNJZjKT0Z3v6s57X5573vPxnOcM/L+aXnt/SQFbupqAaPn0JLTqDGzL/tEE0imjNJ0ahYzoxLpxYuokvWo6ltPptY5XfdMGbCUEiIeQgEfeadw9n6TYqM7QrVFXXJ1lQ87PGwUaMR/G1bts0FnI6F16dLZRg9Q0YzpM8H40CPuMTjCmUYOx26hOsO3a1yEEjwHBWychq6YaA9qsXoeg8r5GYWNArerwit1dOgMvNGRUVld6I5GJBtlrPlknyFOXung0d3aVN/FnIFt3jif0V9hS49L36gPq0YXqLm23WjItK5FtxyANsb6qQAvA/JpALT9/OEoIVLdo7jp8R+zZ2sXbrXMM1E67p80ngyFPV3XxlashI2ryIZ2r5cPdKTZoHoLjH63y+ogOk1HTQcbRNeLRrSbZt1rSBlm9wTk1ReLQWoHtVfvJ6F8rU02dpkfz9WRIt5qKq3MQhKsAxfWzeoDadZ6EOk9s6FZq5dXY+XFd1R075wWCnE7TuYzMd4QFZ9dPfIeAAZ1goLwOtnu1EP4GuebKzS4yZVkXjGm6RjepfsMQMmqRVtrUG+ttfgfKAr25fmZYuTbpb2XP6wfixS/Ccq6abEavxN4Ni90hSjUDNORPi96+dqEZnIRLneL+ppTY5kLvigG5poBiQBJiEHu8KaAFYByAM9GJZoBaip28Xf9uyqTXvVjMcpsKP88tiQx/Xz9K8ObBklrRFOyuFAe7k0DsZYCtKSB4tYJpgleAwy70LfVoPU9HZSvucBaCM56Gtmw+BW/44/ITHywS5Q+lWnOyIPSKnzp+lGBMh2nXOejVSeIaJSsExQJtlsh2v3q+VZ0qHnnJKNWmTi22sIzO0Kl+yZNvLwF1qul2S0GPqamCGF5cGR0vbBxQ00FO8+xS/9xuKel2qcOJogExiPZzc1zAYhkm4QkAuQPcKT3mjhEsU+138hNweennayEtZazUqt4rbNynCyGndIp2dTBXRq0b1S525irmnQMlVwY5nSxsJHQaOnUUxpxrUaPFU2Es5yywo0Jtxi+fpWVxb0D7iV8+C+z8JgnBexeBtu/7g+ySVjl8u+/Bb6tURGthKgtJXPmqSh4fKSqHtlrz0hE9T3D4dl+lVC8bmXLzfew5WlAk1XRykNUpNtUmgwdSdBilGVFPVNGQsS5I8Dy01hhdbo9ziGCwNmfmdJpzan/Ncs/pDL2V5FNmUTQKt0opWBUohBYuwex4tSMdLvTRs9YMFGT0HgxFNezecxDa15yDe3UcgofrGWpqd8RMM38CLOsb/xLOf7z+AXsbcdFXsbSXAAAAAElFTkSuQmCC';
-    var activePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAABBBAMAAADMCjABAAAAMFBMVEWO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+Ks6mUMGAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAABChJREFUeNrtmM1rXGUUxn93MpM0bYVrsVQaA5EutJt0FEHQRcaPSrHUBEVX1k6hC12UpmJdFDVNly7SUMGFQhPoH9BqC1IoJC4U/KATQaogdJoqWGlhak0Tk0nuz8VkMpNJZjKT0Z3v6s57X5573vPxnOcM/L+aXnt/SQFbupqAaPn0JLTqDGzL/tEE0imjNJ0ahYzoxLpxYuokvWo6ltPptY5XfdMGbCUEiIeQgEfeadw9n6TYqM7QrVFXXJ1lQ87PGwUaMR/G1bts0FnI6F16dLZRg9Q0YzpM8H40CPuMTjCmUYOx26hOsO3a1yEEjwHBWychq6YaA9qsXoeg8r5GYWNArerwit1dOgMvNGRUVld6I5GJBtlrPlknyFOXung0d3aVN/FnIFt3jif0V9hS49L36gPq0YXqLm23WjItK5FtxyANsb6qQAvA/JpALT9/OEoIVLdo7jp8R+zZ2sXbrXMM1E67p80ngyFPV3XxlashI2ryIZ2r5cPdKTZoHoLjH63y+ogOk1HTQcbRNeLRrSbZt1rSBlm9wTk1ReLQWoHtVfvJ6F8rU02dpkfz9WRIt5qKq3MQhKsAxfWzeoDadZ6EOk9s6FZq5dXY+XFd1R075wWCnE7TuYzMd4QFZ9dPfIeAAZ1goLwOtnu1EP4GuebKzS4yZVkXjGm6RjepfsMQMmqRVtrUG+ttfgfKAr25fmZYuTbpb2XP6wfixS/Ccq6abEavxN4Ni90hSjUDNORPi96+dqEZnIRLneL+ppTY5kLvigG5poBiQBJiEHu8KaAFYByAM9GJZoBaip28Xf9uyqTXvVjMcpsKP88tiQx/Xz9K8ObBklrRFOyuFAe7k0DsZYCtKSB4tYJpgleAwy70LfVoPU9HZSvucBaCM56Gtmw+BW/44/ITHywS5Q+lWnOyIPSKnzp+lGBMh2nXOejVSeIaJSsExQJtlsh2v3q+VZ0qHnnJKNWmTi22sIzO0Kl+yZNvLwF1qul2S0GPqamCGF5cGR0vbBxQ00FO8+xS/9xuKel2qcOJogExiPZzc1zAYhkm4QkAuQPcKT3mjhEsU+138hNweennayEtZazUqt4rbNynCyGndIp2dTBXRq0b1S525irmnQMlVwY5nSxsJHQaOnUUxpxrUaPFU2Es5yywo0Jtxi+fpWVxb0D7iV8+C+z8JgnBexeBtu/7g+ySVjl8u+/Bb6tURGthKgtJXPmqSh4fKSqHtlrz0hE9T3D4dl+lVC8bmXLzfew5WlAk1XRykNUpNtUmgwdSdBilGVFPVNGQsS5I8Dy01hhdbo9ziGCwNmfmdJpzan/Ncs/pDL2V5FNmUTQKt0opWBUohBYuwex4tSMdLvTRs9YMFGT0HgxFNezecxDa15yDe3UcgofrGWpqd8RMM38CLOsb/xLOf7z+AXsbcdFXsbSXAAAAAElFTkSuQmCC';
+    var inactivePng = ')js" ACEVO_SNAPSHOT_INACTIVE_URL R"js(';
+    var activePng = ')js" ACEVO_SNAPSHOT_ACTIVE_URL R"js(';
     function paint(icon) {
         var season = window.SeasonInfo;
         var multiplayer = document.body.classList.contains('multiplayer') ||
@@ -104,7 +104,7 @@ const char pageScript[] = R"js(
                 if (!container) return;
                 var icon = document.createElement('img');
                 icon.className = 'acevo-snapshot';
-                icon.style.cssText = 'display:none;position:absolute;left:2.3rem;bottom:0.41rem;width:3.25rem;height:1.47rem;pointer-events:none';
+                icon.style.cssText = 'display:none;position:absolute;left:2.1rem;bottom:0.33rem;width:3.6rem;height:2.03rem;pointer-events:none';
                 icon.addEventListener('error', function () {
                     console.error('[ACEvoPerf] snapshot indicator PNG failed to load');
                 });

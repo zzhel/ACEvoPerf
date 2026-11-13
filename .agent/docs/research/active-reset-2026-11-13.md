@@ -61,7 +61,9 @@ In solo practice the input build loaded the saved N/M bindings, recorded two 156
 
 The guard starts closed. The session start routine at `0x78b1b0` accepts a tagged local season or a server connection. It enables reset only after a local start creates a new local server in the platform client at `+0x4538`. Remote variants and rejected starts leave reset disabled. The multiplayer join and connect callbacks close the guard before forwarding to the game. Exit also closes it. The version and instruction checks disable reset if the expected hooks cannot be installed.
 
-Physics checks the guard before polling the bindings. A new session generation invalidates the previous snapshot even if the same physics objects are reused. The HUD stays hidden while the guard is closed and also honours the game's multiplayer mode. Its latest design uses one larger dotted R8-style outline. A local test covered remote and failed starts, a successful local start, joining during startup, connecting and exiting. A UI test covered visibility and the grey and green images. Multiplayer server testing has not been performed.
+Physics checks the guard before polling the bindings. A new session generation invalidates the previous snapshot even if the same physics objects are reused. The HUD stays hidden while the guard is closed and also honours the game's multiplayer mode. A local test covered remote and failed starts, a successful local start, joining during startup, connecting and exiting. A UI test covered visibility and the grey and green images. Multiplayer server testing has not been performed.
+
+The build embeds the owner's 167 by 94 PNGs from `assets/snapshot-inactive.png` and `assets/snapshot-active.png`. It strips the print-density chunk from the embedded copies to fit the installed Gameface build's 2048-character image URL limit. The decoded pixels match the supplied files exactly. The HUD preserves their aspect ratio and leaves space between the visible outline and the timer.
 
 This guard only controls active reset. It does not remove the proxy DLL or other in-memory hooks. Use the original game files for a multiplayer launch.
 

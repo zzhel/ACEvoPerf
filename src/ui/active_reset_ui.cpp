@@ -5,12 +5,34 @@
 
 namespace {
 std::atomic<uint64_t> pendingNotice{0};
+std::atomic<uint64_t> timerState{0};
 void* mainView = nullptr;
 
 const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
+    window.__acevoActiveResetTimer = function (elapsed) {
+        var timer = document.querySelector('.acevo-reset-timer');
+        var laps = document.querySelector('ks-hud ks-laptime .timing .laps');
+        if (!timer && laps) {
+            timer = document.createElement('div');
+            timer.className = 'time acevo-reset-timer';
+            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span>';
+            laps.appendChild(timer);
+        }
+        if (!timer) return;
+        var season = window.SeasonInfo;
+        var hidden = elapsed < 0 || document.body.classList.contains('multiplayer') ||
+            (season && season.mode === 'ClientCommandsMode_MULTIPLAYER');
+        timer.style.display = hidden ? 'none' : 'flex';
+        if (hidden) return;
+        var minutes = Math.floor(elapsed / 60000);
+        var seconds = Math.floor(elapsed / 1000) % 60;
+        var millis = elapsed % 1000;
+        timer.querySelector('.value').textContent = String(minutes).padStart(2, '0') + ':' +
+            String(seconds).padStart(2, '0') + '.' + String(millis).padStart(3, '0');
+    };
     window.__acevoActiveResetNotify = function (message) {
         var panel = document.querySelector('ks-notificationpanel');
         if (!panel || !panel.listNotifications || typeof engine === 'undefined') return;
@@ -94,9 +116,9 @@ const char pageScript[] = R"js(
 })();
 )js";
 
-void OnView(void* view, int number, unsigned, unsigned)
+void OnView(void* view, int, unsigned, unsigned, bool isMainView)
 {
-    if (number != 1) return;
+    if (!isMainView) return;
     mainView = view;
     using ScriptFn = void (*)(void*, const char*);
     reinterpret_cast<ScriptFn>((*static_cast<void***>(view))[cohtml_slot::kViewAddInitialScript])(view, pageScript);
@@ -106,6 +128,19 @@ void OnView(void* view, int number, unsigned, unsigned)
 void OnFrameEnd(bool after)
 {
     if (!after || !mainView) return;
+    static ULONGLONG lastTimerUpdate = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (now - lastTimerUpdate >= 100) {
+        lastTimerUpdate = now;
+        const uint64_t state = timerState.load(std::memory_order_acquire);
+        const uint64_t epoch = ActiveResetSessionEpoch();
+        const int64_t elapsed = (epoch & 1) && (state >> 32) == epoch
+            ? static_cast<int64_t>(static_cast<uint32_t>(state)) : -1;
+        char script[160];
+        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld);", elapsed);
+        using ScriptFn = void (*)(void*, const char*);
+        reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, script);
+    }
     if (!pendingNotice.load(std::memory_order_relaxed)) return;
     const uint64_t pending = pendingNotice.exchange(0, std::memory_order_acquire);
     const uint64_t epoch = ActiveResetSessionEpoch();
@@ -131,6 +166,11 @@ void OnFrameEnd(bool after)
 void NotifyActiveReset(uint64_t sessionEpoch, ActiveResetNotice notice)
 {
     pendingNotice.store((sessionEpoch << 3) | static_cast<uint64_t>(notice), std::memory_order_release);
+}
+
+void SetActiveResetTimer(uint64_t sessionEpoch, uint32_t elapsedMs)
+{
+    timerState.store((sessionEpoch << 32) | elapsedMs, std::memory_order_release);
 }
 
 void InstallActiveResetUi()

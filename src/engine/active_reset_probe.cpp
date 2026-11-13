@@ -25,6 +25,7 @@ CarId checkpointId = {};
 BYTE* checkpointCar = nullptr;
 BYTE* checkpointWorld = nullptr;
 bool snapshotExperiment = false;
+double timerStart = 0;
 
 void ClearCheckpoint()
 {
@@ -33,6 +34,7 @@ void ClearCheckpoint()
     checkpointCar = nullptr;
     checkpointWorld = nullptr;
     checkpointId = {};
+    SetActiveResetTimer(0, 0);
 }
 
 void StepProbe(BYTE* controller, float delta, double time)
@@ -89,6 +91,7 @@ void StepProbe(BYTE* controller, float delta, double time)
                     checkpointCar = car;
                     checkpointWorld = world;
                     checkpointId = id;
+                    timerStart = time;
                     NotifyActiveReset(epoch, ActiveResetNotice::Saved);
                     Log("[active-reset-probe] saved checkpoint, bytes=%zu", size_t(checkpoint.last - checkpoint.first));
                 } else {
@@ -103,12 +106,17 @@ void StepProbe(BYTE* controller, float delta, double time)
         } else if (focused && loadDown) {
             if (car && checkpoint.first) {
                 const bool restored = restoreSnapshot(controller, &id, &checkpoint);
+                if (restored) timerStart = time;
                 NotifyActiveReset(epoch, restored ? ActiveResetNotice::Restored : ActiveResetNotice::RestoreFailed);
                 Log("[active-reset-probe] restore returned %d; driving result requires verification", restored ? 1 : 0);
             } else {
                 Log("[active-reset-probe] no checkpoint for this car");
                 NotifyActiveReset(epoch, ActiveResetNotice::NoSnapshot);
             }
+        }
+        if (checkpoint.first) {
+            const double elapsed = time - timerStart;
+            SetActiveResetTimer(epoch, elapsed > 0 && elapsed < 4294967295.0 ? static_cast<uint32_t>(elapsed) : 0);
         }
         return;
     }

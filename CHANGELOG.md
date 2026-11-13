@@ -2,6 +2,12 @@
 
 Every version of ACEvoPerf and what changed in it, newest first.
 
+## Next (unreleased)
+
+### Added
+
+- A timer for each active reset attempt.
+
 ## 0.4.0 for Linux (2026-10-08)
 
 A separate download of 0.4.0 for Linux and Proton.

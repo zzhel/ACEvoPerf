@@ -11,14 +11,22 @@ const char pageScript[] = R"js(
     'use strict';
     if (window.__acevoActiveReset) return;
     var active = false;
+    var indicator;
+    // Transparent PNGs with the same R8-style outline mask, one for each state.
+    var inactivePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAAAmBAMAAADZ+w/jAAAAMFBMVEXT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19smuEYJAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAAAzFJREFUeNrtVUtsTFEY/s6dzkzbGXpJiYrH9U4XlalE6IZ6xyNRlXgkwkVIbLRdSEMkLSKSClM2xKsNCySojQ2hukFETOOVIM2gYtNyPDrT19z7WUw77tzOvRI74V/dc/L9539933+Bf8d2AOqf+GVZD+LsizNnAneaR7t5TF2ySAN4++w7Z4yfXXlsbWBZvnNScyWT1rnVCVLwIJuxAGtrWBxtd46VMkN3KG1nScGN5/HqOv+clxP7nTrxCLx99x2grCtXzrW2ZgSFqQ18KTLmKc2IqaFR9avG7kwQnz72Veowp7QiY07Z5IHUYQzZkgHT0Jt2jMhQBlATrc1bRcOet+dJiEybVI2hLrSBRs7eR8P6vGhgT5rTisphbLVl5K0KmCHfQUus85L2Wvzk29NrU28pMj6c7326LYH5sj5spEDTm0kyYePXKpLs2DYYy+z1fhk6pHEsjcjQUX0gGPn58Sk7B8VxkjRvAQBGaU3tGDG0sWI7Nvf52QUACNI4lIntytK6eyQvAhDRdo+TIJRQNmPJmVJ34rrYGDUNDfCZfS4KFffqAcDLHhfQqDCfAR4Zc9O6UA4DCPKmGyiHPQBKylz3zHjqQNC5smTlBhQ8dA2GyQj9fqs1KhqUp5WumBxDA4J0T3sCyxCga48waxKAIBtdQUWsFbkxFI8dncT5Lmwq3FCzvLvldPVXAEDJjCvdVfVAVkfuSjz5CsCzwOKfuA8Ai6FcVddAibA8mdT+yi0MRXo9/BHgzXwVgJDxPH4DIKIkPwIQzbSYoQEoIsleAIH+JJWy+KNB6jR8ZjyPH2VLUjyB5ODHDYC9TDMdQJikqQOAJiIfAHjZNTOhhuNK9Jmfu8w4AK25XVSrACCut0kDQC6NtpRF2Qggara1XRqk5pTLEOqxWmUNskLIV7HYyw9ATn++9qshq3kCqGBlSk/CzzhQMKDGwfHpuz+lzWFZ8TW9gvWWm4BpXrluGhZdiqh8UyellYfzWStN1baev6+mlWJKhCSfWzHzSDKhWb06tUjC/gP77n+ddjNGkn1a2oZuIs0DaSAVhSdtaj03hMzT9u6xycWz/kg5/tvfaz8Bmo+UdiaINMwAAAAASUVORK5CYII=';
+    var activePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAAAmBAMAAADZ+w/jAAAAMFBMVEWO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+Ks6mUMGAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAAAzFJREFUeNrtVUtsTFEY/s6dzkzbGXpJiYrH9U4XlalE6IZ6xyNRlXgkwkVIbLRdSEMkLSKSClM2xKsNCySojQ2hukFETOOVIM2gYtNyPDrT19z7WUw77tzOvRI74V/dc/L9539933+Bf8d2AOqf+GVZD+LsizNnAneaR7t5TF2ySAN4++w7Z4yfXXlsbWBZvnNScyWT1rnVCVLwIJuxAGtrWBxtd46VMkN3KG1nScGN5/HqOv+clxP7nTrxCLx99x2grCtXzrW2ZgSFqQ18KTLmKc2IqaFR9avG7kwQnz72Veowp7QiY07Z5IHUYQzZkgHT0Jt2jMhQBlATrc1bRcOet+dJiEybVI2hLrSBRs7eR8P6vGhgT5rTisphbLVl5K0KmCHfQUus85L2Wvzk29NrU28pMj6c7326LYH5sj5spEDTm0kyYePXKpLs2DYYy+z1fhk6pHEsjcjQUX0gGPn58Sk7B8VxkjRvAQBGaU3tGDG0sWI7Nvf52QUACNI4lIntytK6eyQvAhDRdo+TIJRQNmPJmVJ34rrYGDUNDfCZfS4KFffqAcDLHhfQqDCfAR4Zc9O6UA4DCPKmGyiHPQBKylz3zHjqQNC5smTlBhQ8dA2GyQj9fqs1KhqUp5WumBxDA4J0T3sCyxCga48waxKAIBtdQUWsFbkxFI8dncT5Lmwq3FCzvLvldPVXAEDJjCvdVfVAVkfuSjz5CsCzwOKfuA8Ai6FcVddAibA8mdT+yi0MRXo9/BHgzXwVgJDxPH4DIKIkPwIQzbSYoQEoIsleAIH+JJWy+KNB6jR8ZjyPH2VLUjyB5ODHDYC9TDMdQJikqQOAJiIfAHjZNTOhhuNK9Jmfu8w4AK25XVSrACCut0kDQC6NtpRF2Qggara1XRqk5pTLEOqxWmUNskLIV7HYyw9ATn++9qshq3kCqGBlSk/CzzhQMKDGwfHpuz+lzWFZ8TW9gvWWm4BpXrluGhZdiqh8UyellYfzWStN1baev6+mlWJKhCSfWzHzSDKhWb06tUjC/gP77n+ddjNGkn1a2oZuIs0DaSAVhSdtaj03hMzT9u6xycWz/kg5/tvfaz8Bmo+UdiaINMwAAAAASUVORK5CYII=';
     function paint(icon) {
-        icon.style.color = active ? '#56d984' : '#888888';
-        icon.setAttribute('aria-label', active ? 'Snapshot saved' : 'No snapshot');
-        icon.setAttribute('title', active ? 'Snapshot saved' : 'No snapshot');
+        var label = active ? 'Snapshot saved' : 'No snapshot';
+        icon.setAttribute('src', active ? activePng : inactivePng);
+        icon.setAttribute('alt', label);
+        icon.setAttribute('title', label);
     }
     window.__acevoActiveReset = function (value) {
+        if (active === value) return;
         active = value;
-        document.querySelectorAll('.acevo-snapshot').forEach(paint);
+        if (!indicator) return;
+        paint(indicator);
+        console.log('[ACEvoPerf] snapshot indicator ' + (active ? 'active' : 'inactive'));
     };
     var definitions = [
         {number: 551, action: 'InputAction_AIDev_SaveSnapshot', name: 'AIDev SaveSnapshot', label: 'Active reset: Save snapshot'},
@@ -85,12 +93,13 @@ const char pageScript[] = R"js(
                 if (!this.closest('ks-hud') || this.querySelector('.acevo-snapshot')) return;
                 var container = this.querySelector('.session-container');
                 if (!container) return;
-                var icon = document.createElement('span');
+                var icon = document.createElement('img');
                 icon.className = 'acevo-snapshot';
-                icon.setAttribute('role', 'img');
-                icon.style.cssText = 'position:absolute;left:1rem;bottom:0.4rem;width:4rem;height:1.5rem;display:flex;align-items:center;pointer-events:none';
-                var car = 'M2 15 L3 10 L9 9 L13 4 L25 4 L31 10 L37 12 L38 18 L33 18 A4 4 0 0 1 25 18 L14 18 A4 4 0 0 1 6 18 L2 18 Z';
-                icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 26" width="100%" height="100%"><path d="' + car + '" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="1 4" stroke-linecap="round"/><path transform="translate(44 0)" d="' + car + '" fill="currentColor"/></svg>';
+                icon.style.cssText = 'position:absolute;left:2.3rem;bottom:0.72rem;width:3.25rem;height:0.86rem;pointer-events:none';
+                icon.addEventListener('error', function () {
+                    console.error('[ACEvoPerf] snapshot indicator PNG failed to load');
+                });
+                indicator = icon;
                 container.insertBefore(icon, container.firstChild);
                 paint(icon);
                 console.log('[ACEvoPerf] snapshot indicator attached');

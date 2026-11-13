@@ -7,7 +7,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 ### Added
 
 - Optional active reset experiment for solo practice, disabled by default.
-- Configurable save and restore controls, with a grey or green snapshot indicator beside the session timer.
+- Configurable save and restore controls, with a light grey or light green car icon inside the session timer panel.
 
 ## 0.3.2 (2026-09-18)
 

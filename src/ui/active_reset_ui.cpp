@@ -7,19 +7,20 @@ namespace {
 std::atomic<uint64_t> pendingNotice{0};
 std::atomic<uint64_t> timerState{0};
 std::atomic<uint64_t> bestState{0};
+std::atomic<uint64_t> deltaState{0};
 void* mainView = nullptr;
 
 const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
-    window.__acevoActiveResetTimer = function (elapsed, best) {
+    window.__acevoActiveResetTimer = function (elapsed, best, delta) {
         var timer = document.querySelector('.acevo-reset-timer');
         var laps = document.querySelector('ks-hud ks-laptime .timing .laps');
         if (!timer && laps) {
             timer = document.createElement('div');
             timer.className = 'time acevo-reset-timer';
-            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span><span class="label acevo-reset-best"></span>';
+            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span><span class="label acevo-reset-best"></span><span class="label acevo-reset-delta"></span>';
             laps.appendChild(timer);
         }
         if (!timer) return;
@@ -34,6 +35,9 @@ const char pageScript[] = R"js(
         }
         timer.querySelector('.value').textContent = format(elapsed);
         timer.querySelector('.acevo-reset-best').textContent = best >= 0 ? 'BEST ' + format(best) : '';
+        var deltaLabel = timer.querySelector('.acevo-reset-delta');
+        deltaLabel.textContent = delta === null ? '' : (delta > 0 ? '+' : delta < 0 ? '-' : '') + (Math.abs(delta) / 1000).toFixed(3);
+        deltaLabel.style.color = delta === null || delta === 0 ? 'white' : delta < 0 ? '#90ee90' : '#ff8b8b';
     };
     window.__acevoActiveResetNotify = function (message) {
         var panel = document.querySelector('ks-notificationpanel');
@@ -142,8 +146,12 @@ void OnFrameEnd(bool after)
         const uint64_t best = bestState.load(std::memory_order_acquire);
         const int64_t bestMs = (epoch & 1) && (best >> 32) == epoch
             ? static_cast<int64_t>(static_cast<uint32_t>(best)) : -1;
-        char script[160];
-        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld,%lld);", elapsed, bestMs);
+        const uint64_t delta = deltaState.load(std::memory_order_acquire);
+        char deltaText[32] = "null";
+        if ((epoch & 1) && (delta >> 32) == epoch)
+            sprintf_s(deltaText, "%d", static_cast<int32_t>(static_cast<uint32_t>(delta)));
+        char script[192];
+        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld,%lld,%s);", elapsed, bestMs, deltaText);
         using ScriptFn = void (*)(void*, const char*);
         reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, script);
     }
@@ -184,6 +192,11 @@ void SetActiveResetTimer(uint64_t sessionEpoch, uint32_t elapsedMs)
 void SetActiveResetBest(uint64_t sessionEpoch, uint32_t elapsedMs)
 {
     bestState.store((sessionEpoch << 32) | elapsedMs, std::memory_order_release);
+}
+
+void SetActiveResetDelta(uint64_t sessionEpoch, int32_t deltaMs)
+{
+    deltaState.store((sessionEpoch << 32) | static_cast<uint32_t>(deltaMs), std::memory_order_release);
 }
 
 void InstallActiveResetUi()

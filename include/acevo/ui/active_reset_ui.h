@@ -16,3 +16,4 @@ enum class ActiveResetNotice : uint64_t {
 void NotifyActiveReset(uint64_t sessionEpoch, ActiveResetNotice notice);
 void SetActiveResetTimer(uint64_t sessionEpoch, uint32_t elapsedMs);
 void SetActiveResetBest(uint64_t sessionEpoch, uint32_t elapsedMs);
+void SetActiveResetDelta(uint64_t sessionEpoch, int32_t deltaMs);

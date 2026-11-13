@@ -33,6 +33,46 @@ double nextPositionSample = 0;
 uint32_t finishedTime = 0;
 uint32_t bestTime = 0;
 bool finished = false;
+struct TracePoint { Vec3 position; double elapsed; };
+std::vector<TracePoint> bestTrace;
+std::vector<TracePoint> currentTrace;
+size_t referenceIndex = 0;
+bool traceValid = true;
+constexpr size_t maxTracePoints = 36000;
+
+void PublishDelta(uint64_t epoch, const Vec3& position, double elapsed)
+{
+    if (bestTrace.size() < 2) { SetActiveResetDelta(0, 0); return; }
+    const size_t start = referenceIndex > 5 ? referenceIndex - 5 : 0;
+    const size_t end = (std::min)(bestTrace.size() - 1, referenceIndex + 100);
+    double closest = 100.0;
+    double referenceTime = 0;
+    size_t match = referenceIndex;
+    bool found = false;
+    for (size_t i = start; i < end; ++i) {
+        const TracePoint& a = bestTrace[i];
+        const TracePoint& b = bestTrace[i + 1];
+        const double dx = b.position.x - a.position.x, dy = b.position.y - a.position.y, dz = b.position.z - a.position.z;
+        const double length = dx * dx + dy * dy + dz * dz;
+        if (length < 0.0001) continue;
+        const double x = position.x - a.position.x, y = position.y - a.position.y, z = position.z - a.position.z;
+        const double fraction = (std::max)(0.0, (std::min)(1.0, (x * dx + y * dy + z * dz) / length));
+        const double ex = x - fraction * dx, ey = y - fraction * dy, ez = z - fraction * dz;
+        const double distance = ex * ex + ey * ey + ez * ez;
+        if (distance < closest) {
+            closest = distance;
+            referenceTime = a.elapsed + fraction * (b.elapsed - a.elapsed);
+            match = i;
+            found = true;
+        }
+    }
+    if (!found || elapsed - referenceTime < INT32_MIN || elapsed - referenceTime > INT32_MAX) {
+        SetActiveResetDelta(0, 0);
+        return;
+    }
+    referenceIndex = (std::max)(referenceIndex, match);
+    SetActiveResetDelta(epoch, static_cast<int32_t>(elapsed - referenceTime));
+}
 
 struct Proto {
     const BYTE* p;
@@ -113,8 +153,13 @@ void ClearCheckpoint()
     gate = {};
     finished = false;
     bestTime = 0;
+    bestTrace.clear();
+    currentTrace.clear();
+    referenceIndex = 0;
+    traceValid = true;
     SetActiveResetTimer(0, 0);
     SetActiveResetBest(0, 0);
+    SetActiveResetDelta(0, 0);
 }
 
 void StepProbe(BYTE* controller, float delta, double time)
@@ -193,6 +238,10 @@ void StepProbe(BYTE* controller, float delta, double time)
                     gate.armed = gate.set;
                     gate.previousValid = false;
                     nextPositionSample = time;
+                    currentTrace.clear();
+                    referenceIndex = 0;
+                    traceValid = true;
+                    SetActiveResetDelta(0, 0);
                 }
                 NotifyActiveReset(epoch, restored ? ActiveResetNotice::Restored : ActiveResetNotice::RestoreFailed);
                 Log("[active-reset-probe] restore returned %d; driving result requires verification", restored ? 1 : 0);
@@ -210,6 +259,9 @@ void StepProbe(BYTE* controller, float delta, double time)
                 gate.direction = {velocity.x / speed, 0, velocity.z / speed};
                 gate.set = true;
                 bestTime = 0;
+                bestTrace.clear();
+                currentTrace.clear();
+                SetActiveResetDelta(0, 0);
                 finished = false;
                 SetActiveResetBest(0, 0);
                 NotifyActiveReset(epoch, ActiveResetNotice::GateSaved);
@@ -222,6 +274,12 @@ void StepProbe(BYTE* controller, float delta, double time)
             nextPositionSample = time + 50;
             Vec3 position, velocity;
             if (ReadPosition(controller, id, position, velocity)) {
+                const double sampleElapsed = time - timerStart;
+                if (currentTrace.size() < maxTracePoints && sampleElapsed >= 0)
+                    currentTrace.push_back({position, sampleElapsed});
+                else
+                    traceValid = false;
+                PublishDelta(epoch, position, sampleElapsed);
                 const double x = position.x - gate.position.x, z = position.z - gate.position.z;
                 const double distance = x * gate.direction.x + z * gate.direction.z;
                 const double lateral = x * -gate.direction.z + z * gate.direction.x;
@@ -233,7 +291,18 @@ void StepProbe(BYTE* controller, float delta, double time)
                         finishedTime = uint32_t(elapsed);
                         finished = true;
                         gate.armed = false;
-                        if (!bestTime || finishedTime < bestTime) bestTime = finishedTime;
+                        if (bestTime && int64_t(finishedTime) - bestTime >= INT32_MIN &&
+                            int64_t(finishedTime) - bestTime <= INT32_MAX)
+                            SetActiveResetDelta(epoch, static_cast<int32_t>(int64_t(finishedTime) - bestTime));
+                        if (!bestTime || finishedTime < bestTime) {
+                            bestTime = finishedTime;
+                            if (traceValid && currentTrace.size() >= 2) {
+                                currentTrace.back().elapsed = elapsed;
+                                bestTrace = currentTrace;
+                            } else {
+                                bestTrace.clear();
+                            }
+                        }
                         SetActiveResetBest(epoch, bestTime);
                         Log("[active-reset-probe] gate crossed: time=%u best=%u ms", finishedTime, bestTime);
                     }
@@ -243,6 +312,8 @@ void StepProbe(BYTE* controller, float delta, double time)
                 gate.previousValid = true;
             } else {
                 gate.previousValid = false;
+                traceValid = false;
+                SetActiveResetDelta(0, 0);
             }
         }
         if (checkpoint.first) {

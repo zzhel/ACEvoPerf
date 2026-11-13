@@ -2,7 +2,7 @@
 name: docs-index
 kind: doc
 description: index of the knowledge library, one line per doc
-updated: 2026-09-16
+updated: 2026-11-13
 links: [agent-index, spec-docs]
 ---
 
@@ -30,6 +30,8 @@ links: [agent-index, spec-docs]
 - [public-docs](ops/public-docs.md), how the readme, the changelog and the zip readme are written for players, and how the next version is tracked
 
 ## research
+
+- [active-reset-2026-11-13](research/active-reset-2026-11-13.md), native snapshot serialization and restore handlers found, save and load keyboard test pending
 
 - [moddability](research/moddability.md), how the game is built and what a mod can change
 - [lap-2026-09-05-nordschleife](research/lap-2026-09-05-nordschleife.md), the first telemetry lap and what it showed

@@ -2,7 +2,7 @@
 name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
-updated: 2026-09-16
+updated: 2026-11-13
 links: [agent-readme, conventions, house-rules-agent]
 ---
 
@@ -27,7 +27,7 @@ line in the same commit.
 
 ## The knowledge
 
-- [docs/INDEX.md](docs/INDEX.md), the knowledge library: 33 docs in four categories
+- [docs/INDEX.md](docs/INDEX.md), the knowledge library: 34 docs in four categories, including the native active reset investigation
   - foundation: [proxy-architecture](docs/foundation/proxy-architecture.md), the DLL in load order
   - systems: [directstorage-streaming](docs/systems/directstorage-streaming.md), [engine-flags](docs/systems/engine-flags.md), [content-package](docs/systems/content-package.md), [package-override-layer](docs/systems/package-override-layer.md), [settings-files](docs/systems/settings-files.md), [responsive-ui](docs/systems/responsive-ui.md), [session-leak-fix](docs/systems/session-leak-fix.md)
   - ops: [telemetry](docs/ops/telemetry.md), [build-and-release](docs/ops/build-and-release.md), [tools](docs/ops/tools.md), [public-docs](docs/ops/public-docs.md)
@@ -35,7 +35,7 @@ line in the same commit.
 
 ## The trackers
 
-- [todos/INDEX.md](todos/INDEX.md), the work tracker: 12 open (TODO-009, TODO-010, TODO-013, TODO-014, TODO-016, TODO-017, TODO-019 to TODO-022, TODO-024, TODO-026), 12 done, 3 dropped
+- [todos/INDEX.md](todos/INDEX.md), the work tracker: 13 open (TODO-009, TODO-010, TODO-013, TODO-014, TODO-016, TODO-017, TODO-019 to TODO-022, TODO-024, TODO-026, TODO-029), 12 done, 3 dropped
 - [bugs/INDEX.md](bugs/INDEX.md), the defect tracker: 12 open, 14 fixed, 4 won't fix
 - [decisions/INDEX.md](decisions/INDEX.md), the decision record: 17 standing (DEC-001 to DEC-003, DEC-005, DEC-007 to DEC-009, DEC-011 to DEC-020), 3 superseded
 - [reviews/INDEX.md](reviews/INDEX.md), code review ledgers: 1 closed (fix/streamer-feedback-churn)

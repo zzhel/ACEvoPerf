@@ -2,13 +2,17 @@
 name: todos-index
 kind: doc
 description: the work tracker's index, open items first
-updated: 2026-09-16
+updated: 2026-11-13
 links: [agent-index, spec-todos]
 ---
 
 # Todos Index
 
 ## Open
+
+foundation
+
+- [TODO-029-active-reset](TODO-029-active-reset.md), native snapshot commands found, solo practice save and load test pending before the one button implementation
 
 release
 

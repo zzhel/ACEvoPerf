@@ -10,6 +10,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 - Set a finish gate and compare your best active reset time.
 - See how far ahead or behind your best active reset attempt you are.
 - Use the run that sets the finish gate as your first best time.
+- A marker shows the position of the snapshot finish gate.
 
 ### Fixed
 

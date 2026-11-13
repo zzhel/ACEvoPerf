@@ -75,6 +75,8 @@ On 2026-11-13 a local circuit probe sent `AddCustomPoiCommand` through `OnUIComm
 
 On 2026-11-14 an empty `AddCustomPoiCommand` with `clear_before=false` returned without a conversion error or crash, and circuit mode logged twice that it had no handler for the command. This confirms that varying the nested marker payload cannot make this UI command work in the tested circuit session. The probe was removed and the normal DLL rebuilt.
 
+The alternative uses the main render camera rather than a game POI. On the checked 0.9.1 executable the call at RVA `0x1d85af8` copies the camera matrix at `camera+0x6c`; the adjacent matrix at `camera+0xac` has the shape of a perspective projection. A guarded, read-only probe recorded both matrices in solo practice, and a follow-up build projected the gate position into a Cohtml HUD marker. The user reported that the marker appeared in the correct place. The marker is a screen overlay, so it does not have depth occlusion. Other camera modes, VR, resize behavior and session transitions have not been verified. The hook checks the executable identity and call bytes and ignores marker data outside the local-session epoch.
+
 ## Remaining verification
 
 Add the final one button interaction. Validate more cars and repeated checkpoint replacement. Position, speed and gear are confirmed by the user in the initial solo practice test.

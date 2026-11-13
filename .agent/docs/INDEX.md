@@ -35,7 +35,7 @@ links: [agent-index, spec-docs]
 
 ## research
 
-- [active-reset-2026-11-13](research/active-reset-2026-11-13.md), solo snapshots, local guard and circuit marker command tests
+- [active-reset-2026-11-13](research/active-reset-2026-11-13.md), solo snapshots, local guard and camera-projected gate marker
 
 - [moddability](research/moddability.md), how the game is built and what a mod can change
 - [lap-2026-09-05-nordschleife](research/lap-2026-09-05-nordschleife.md), the first telemetry lap and what it showed

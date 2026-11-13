@@ -1,5 +1,6 @@
 #include "acevo/ui/active_reset_ui.h"
 #include "acevo/engine/active_reset_session.h"
+#include "acevo/engine/active_reset_probe.h"
 #include "acevo/ui/cohtml_hooks.h"
 #include "acevo/core/log.h"
 
@@ -15,6 +16,25 @@ const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
+    window.__acevoGateMarker = function (visible, x, y) {
+        var marker = document.getElementById('acevo-gate-marker');
+        var season = window.SeasonInfo;
+        visible = visible && !document.body.classList.contains('multiplayer') &&
+            !(season && season.mode === 'ClientCommandsMode_MULTIPLAYER') && !!document.querySelector('ks-hud#mainHUD');
+        if (!marker && visible) {
+            marker = document.createElement('div');
+            marker.id = 'acevo-gate-marker';
+            marker.style.cssText = 'position:fixed;transform:translate(-50%,-100%);pointer-events:none;z-index:999;color:#9dffb3;text-align:center;font:700 1.2rem rajdhani-mono,sans-serif;text-shadow:0 1px 3px black';
+            marker.innerHTML = '<div>GATE</div><div style="width:0;height:0;margin:auto;border-left:.45rem solid transparent;border-right:.45rem solid transparent;border-top:.65rem solid #9dffb3"></div>';
+            document.body.appendChild(marker);
+        }
+        if (!marker) return;
+        marker.style.display = visible ? 'block' : 'none';
+        if (visible) {
+            marker.style.left = (x * 100) + 'vw';
+            marker.style.top = (y * 100) + 'vh';
+        }
+    };
     var countdown = null;
     function clearCountdown() {
         if (!countdown) return;
@@ -289,6 +309,12 @@ void OnFrameEnd(bool after)
             sameSession && (finished & 1) ? "true" : "false", sameSession && (finished & 2) ? "true" : "false");
         using ScriptFn = void (*)(void*, const char*);
         reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, script);
+        float markerX = 0, markerY = 0;
+        const bool markerVisible = (epoch & 1) && ReadActiveResetMarker(epoch, markerX, markerY);
+        char markerScript[192];
+        sprintf_s(markerScript, "window.__acevoGateMarker && window.__acevoGateMarker(%s,%.6f,%.6f);",
+            markerVisible ? "true" : "false", markerX, markerY);
+        reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, markerScript);
     }
     if (!pendingNotice.load(std::memory_order_relaxed)) return;
     const uint64_t pending = pendingNotice.exchange(0, std::memory_order_acquire);

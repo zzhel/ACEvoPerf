@@ -34,6 +34,77 @@ uint32_t finishedTime = 0;
 uint32_t bestTime = 0;
 bool finished = false;
 bool improved = false;
+using MatrixCopyFn = void* (*)(void*, const void*);
+MatrixCopyFn originalMatrixCopy = nullptr;
+SRWLOCK markerLock = SRWLOCK_INIT;
+struct MarkerState { uint64_t epoch = 0; Vec3 gate; float x = 0, y = 0; bool visible = false; } marker;
+
+void* CaptureGateCamera(void* destination, const void* source)
+{
+    void* result = originalMatrixCopy(destination, source);
+    const uint64_t epoch = ActiveResetSessionEpoch();
+    if (!(epoch & 1)) return result;
+    AcquireSRWLockExclusive(&markerLock);
+    if (marker.epoch != epoch) {
+        ReleaseSRWLockExclusive(&markerLock);
+        return result;
+    }
+    float values[32];
+    __try {
+        memcpy(values, source, sizeof values);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        marker.visible = false;
+        ReleaseSRWLockExclusive(&markerLock);
+        return result;
+    }
+    const float point[4] = {marker.gate.x, marker.gate.y + 2.0f, marker.gate.z, 1.0f};
+    float view[4] = {}, clip[4] = {};
+    for (unsigned column = 0; column < 4; ++column)
+        for (unsigned row = 0; row < 4; ++row) view[column] += point[row] * values[row * 4 + column];
+    for (unsigned column = 0; column < 4; ++column)
+        for (unsigned row = 0; row < 4; ++row) clip[column] += view[row] * values[16 + row * 4 + column];
+    marker.visible = std::isfinite(clip[0]) && std::isfinite(clip[1]) && std::isfinite(clip[3]) && clip[3] > 0.1f;
+    if (marker.visible) {
+        const float x = clip[0] / clip[3], y = clip[1] / clip[3];
+        marker.visible = std::isfinite(x) && std::isfinite(y) && std::abs(x) <= 1 && std::abs(y) <= 1;
+        marker.x = (x + 1) * 0.5f;
+        marker.y = (1 - y) * 0.5f;
+    }
+    ReleaseSRWLockExclusive(&markerLock);
+    return result;
+}
+
+void InstallGateMarker(BYTE* exe)
+{
+    BYTE* call = exe + 0x1d85af8;
+    const BYTE expectedCall[] = {0xe8, 0x1b, 0x10, 0x28, 0xfe};
+    const BYTE expectedThunk[] = {0xe9, 0x93, 0x61, 0x90, 0x00};
+    const BYTE expectedCopy[] = {0x8b, 0x02, 0x89, 0x01, 0x8b, 0x42, 0x04, 0x89, 0x41, 0x04};
+    if (memcmp(call, expectedCall, sizeof expectedCall) || memcmp(exe + 0x6b18, expectedThunk, sizeof expectedThunk) ||
+        memcmp(exe + 0x90ccb0, expectedCopy, sizeof expectedCopy)) {
+        Log("[active-reset-camera] unsupported camera code; gate marker disabled");
+        return;
+    }
+    BYTE* relay = AllocNear(call, 14);
+    if (!relay) return;
+    BYTE code[14] = {0xff, 0x25, 0, 0, 0, 0};
+    const auto target = reinterpret_cast<uintptr_t>(&CaptureGateCamera);
+    memcpy(code + 6, &target, sizeof target);
+    memcpy(relay, code, sizeof code);
+    DWORD old = 0;
+    BYTE patch[5];
+    if (!VirtualProtect(relay, sizeof code, PAGE_EXECUTE_READ, &old) || !EncodeRel32(0xe8, call, relay, patch)) {
+        VirtualFree(relay, 0, MEM_RELEASE);
+        return;
+    }
+    FlushInstructionCache(GetCurrentProcess(), relay, sizeof code);
+    originalMatrixCopy = reinterpret_cast<MatrixCopyFn>(exe + 0x6b18);
+    if (!WriteCode(call, patch, sizeof patch)) {
+        VirtualFree(relay, 0, MEM_RELEASE);
+        return;
+    }
+    Log("[active-reset-camera] gate marker camera hook installed");
+}
 struct TracePoint { Vec3 position; double elapsed; };
 std::vector<TracePoint> bestTrace;
 std::vector<TracePoint> currentTrace;
@@ -150,6 +221,10 @@ void ClearCheckpoint()
     checkpointCar = nullptr;
     checkpointWorld = nullptr;
     checkpointId = {};
+    AcquireSRWLockExclusive(&markerLock);
+    marker.epoch = 0;
+    marker.visible = false;
+    ReleaseSRWLockExclusive(&markerLock);
     gate = {};
     finished = false;
     improved = false;
@@ -263,6 +338,11 @@ void StepProbe(BYTE* controller, float delta, double time)
                 gate.position = position;
                 gate.direction = {velocity.x / speed, 0, velocity.z / speed};
                 gate.set = true;
+                AcquireSRWLockExclusive(&markerLock);
+                marker.epoch = epoch;
+                marker.gate = position;
+                marker.visible = false;
+                ReleaseSRWLockExclusive(&markerLock);
                 finishedTime = static_cast<uint32_t>(elapsed);
                 bestTime = finishedTime;
                 bestTrace.clear();
@@ -401,7 +481,18 @@ void InstallActiveResetProbe()
         return;
     }
     InstallActiveResetUi();
+    if (snapshotExperiment) InstallGateMarker(exe);
     Log("[active-reset-probe] installed for EVO 0.9.1; snapshot_experiment=%d", snapshotExperiment ? 1 : 0);
     if (snapshotExperiment)
         Log("[active-reset-probe] local sessions only: bind Save/Restore snapshot in Controls");
+}
+
+bool ReadActiveResetMarker(uint64_t epoch, float& x, float& y)
+{
+    AcquireSRWLockShared(&markerLock);
+    const bool visible = marker.epoch == epoch && marker.visible;
+    x = marker.x;
+    y = marker.y;
+    ReleaseSRWLockShared(&markerLock);
+    return visible;
 }

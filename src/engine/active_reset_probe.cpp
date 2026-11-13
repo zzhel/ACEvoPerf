@@ -57,7 +57,7 @@ void* CaptureGateCamera(void* destination, const void* source)
         ReleaseSRWLockExclusive(&markerLock);
         return result;
     }
-    const float point[4] = {marker.gate.x, marker.gate.y + 2.0f, marker.gate.z, 1.0f};
+    const float point[4] = {marker.gate.x, marker.gate.y - 0.5f, marker.gate.z, 1.0f};
     float view[4] = {}, clip[4] = {};
     for (unsigned column = 0; column < 4; ++column)
         for (unsigned row = 0; row < 4; ++row) view[column] += point[row] * values[row * 4 + column];

@@ -44,9 +44,9 @@ constexpr size_t maxTracePoints = 36000;
 void PublishDelta(uint64_t epoch, const Vec3& position, double elapsed)
 {
     if (bestTrace.size() < 2) { SetActiveResetDelta(0, 0); return; }
-    const size_t start = referenceIndex > 5 ? referenceIndex - 5 : 0;
-    const size_t end = (std::min)(bestTrace.size() - 1, referenceIndex + 100);
-    double closest = 100.0;
+    const size_t start = referenceIndex > 200 ? referenceIndex - 200 : 0;
+    const size_t end = (std::min)(bestTrace.size() - 1, referenceIndex + 500);
+    double closest = 900.0;
     double referenceTime = 0;
     size_t match = referenceIndex;
     bool found = false;
@@ -68,7 +68,6 @@ void PublishDelta(uint64_t epoch, const Vec3& position, double elapsed)
         }
     }
     if (!found || elapsed - referenceTime < INT32_MIN || elapsed - referenceTime > INT32_MAX) {
-        SetActiveResetDelta(0, 0);
         return;
     }
     referenceIndex = (std::max)(referenceIndex, match);
@@ -324,7 +323,6 @@ void StepProbe(BYTE* controller, float delta, double time)
             } else {
                 gate.previousValid = false;
                 traceValid = false;
-                SetActiveResetDelta(0, 0);
             }
         }
         if (checkpoint.first) {

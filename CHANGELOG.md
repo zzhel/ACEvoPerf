@@ -17,6 +17,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 - Move the snapshot display independently of the lap timer.
 - The snapshot delta bar hides after you finish the segment.
 - A new best snapshot time flashes at the finish, and the delta bar is wider.
+- The snapshot delta stays visible when you stray from your best run's line.
 
 ## 0.4.0 for Linux (2026-10-08)
 

@@ -73,6 +73,8 @@ The game schema defines `AddCustomPoiCommand` with `ZoneData` points, and the ex
 
 On 2026-11-13 a local circuit probe sent `AddCustomPoiCommand` through `OnUICommand` when setting a gate. Its first payload had an invalid nested type, and the game logged that the circuit game mode had no message handler for the command. A second payload changed the type names and crashed the game in argument conversion at executable RVA `0x2b8ce5c`; it did not establish that the command works. The probe was removed and the DLL rebuilt. Do not repeat this command in circuit mode. The user confirmed the revised black-screen restore fade works.
 
+On 2026-11-14 an empty `AddCustomPoiCommand` with `clear_before=false` returned without a conversion error or crash, and circuit mode logged twice that it had no handler for the command. This confirms that varying the nested marker payload cannot make this UI command work in the tested circuit session. The probe was removed and the normal DLL rebuilt.
+
 ## Remaining verification
 
 Add the final one button interaction. Validate more cars and repeated checkpoint replacement. Position, speed and gear are confirmed by the user in the initial solo practice test.

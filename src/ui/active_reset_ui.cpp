@@ -60,37 +60,33 @@ const char pageScript[] = R"js(
             fade.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background-color:#000;opacity:1;transition:opacity 500ms linear;pointer-events:none;z-index:10000';
             document.body.appendChild(fade);
             pending.fade = fade;
+            var element = document.createElement('div');
+            element.style.cssText = 'position:fixed;top:38%;left:0;width:100%;text-align:center;color:white;font:700 8rem rajdhani-mono,sans-serif;text-shadow:0 2px 4px black;pointer-events:none;z-index:10001';
+            document.body.appendChild(element);
+            pending.element = element;
+            var end = Date.now() + 3000;
+            element.textContent = '3';
+            pending.interval = setInterval(function () {
+                if (document.querySelector('ks-hud#mainHUD') !== hud || document.body.classList.contains('multiplayer')) {
+                    clearCountdown();
+                    return;
+                }
+                var remaining = end - Date.now();
+                if (remaining <= 0) {
+                    clearCountdown();
+                    resumeWithoutHudReload(hud);
+                } else {
+                    element.textContent = String(Math.ceil(remaining / 1000));
+                }
+            }, 50);
             pending.fadeFrame = requestAnimationFrame(function () {
                 pending.fadeFrame = requestAnimationFrame(function () {
                     if (countdown !== pending) return;
                     fade.style.opacity = '0';
                     pending.fadeTimer = setTimeout(function () {
                         if (countdown !== pending) return;
-                        if (document.querySelector('ks-hud#mainHUD') !== hud || document.body.classList.contains('multiplayer')) {
-                            clearCountdown();
-                            return;
-                        }
                         fade.remove();
                         pending.fade = null;
-                        var element = document.createElement('div');
-                        element.style.cssText = 'position:fixed;top:38%;left:0;width:100%;text-align:center;color:white;font:700 8rem rajdhani-mono,sans-serif;text-shadow:0 2px 4px black;pointer-events:none;z-index:9999';
-                        document.body.appendChild(element);
-                        pending.element = element;
-                        var end = Date.now() + 3000;
-                        element.textContent = '3';
-                        pending.interval = setInterval(function () {
-                            if (document.querySelector('ks-hud#mainHUD') !== hud || document.body.classList.contains('multiplayer')) {
-                                clearCountdown();
-                                return;
-                            }
-                            var remaining = end - Date.now();
-                            if (remaining <= 0) {
-                                clearCountdown();
-                                resumeWithoutHudReload(hud);
-                            } else {
-                                element.textContent = String(Math.ceil(remaining / 1000));
-                            }
-                        }, 50);
                     }, 500);
                 });
             });

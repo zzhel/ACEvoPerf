@@ -22,6 +22,25 @@ const char pageScript[] = R"js(
         if (countdown.element) countdown.element.remove();
         countdown = null;
     }
+    function resumeWithoutHudReload(hud) {
+        var ui = window.ksUI;
+        var goTo = ui.goTo;
+        var timeout;
+        function restoreGoTo() {
+            clearTimeout(timeout);
+            if (ui.goTo === intercept) ui.goTo = goTo;
+        }
+        function intercept(page) {
+            if (page === 'hud.html' && hud.isConnected && document.querySelector('ks-hud#mainHUD') === hud) {
+                restoreGoTo();
+                return;
+            }
+            return goTo.apply(this, arguments);
+        }
+        ui.goTo = intercept;
+        timeout = setTimeout(restoreGoTo, 1500);
+        ui.request('GameMode', 'Resume');
+    }
     function pauseForRestore() {
         var hud = document.querySelector('ks-hud#mainHUD');
         if (!hud || !hud.GameModeClient || countdown) return;
@@ -48,7 +67,7 @@ const char pageScript[] = R"js(
                 var remaining = end - Date.now();
                 if (remaining <= 0) {
                     clearCountdown();
-                    window.ksUI.request('GameMode', 'Resume');
+                    resumeWithoutHudReload(hud);
                 } else {
                     element.textContent = String(Math.ceil(remaining / 1000));
                 }

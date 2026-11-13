@@ -15,7 +15,48 @@ const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
+    var countdown = null;
+    function clearCountdown() {
+        if (!countdown) return;
+        clearInterval(countdown.interval);
+        if (countdown.element) countdown.element.remove();
+        countdown = null;
+    }
+    function pauseForRestore() {
+        var hud = document.querySelector('ks-hud#mainHUD');
+        if (!hud || !hud.GameModeClient || countdown) return;
+        var pending = {hud: hud};
+        countdown = pending;
+        hud.GameModeClient.request('Pause', function (response) {
+            if (countdown !== pending) return;
+            if (!response || response.response !== 'GameModePauseOK' || !hud.isConnected ||
+                document.body.classList.contains('multiplayer')) {
+                clearCountdown();
+                return;
+            }
+            var element = document.createElement('div');
+            element.style.cssText = 'position:fixed;top:38%;left:0;width:100%;text-align:center;color:white;font:700 4rem rajdhani-mono,sans-serif;text-shadow:0 2px 4px black;pointer-events:none;z-index:9999';
+            document.body.appendChild(element);
+            pending.element = element;
+            var end = Date.now() + 3000;
+            element.textContent = '3';
+            pending.interval = setInterval(function () {
+                if (document.querySelector('ks-hud#mainHUD') !== hud || document.body.classList.contains('multiplayer')) {
+                    clearCountdown();
+                    return;
+                }
+                var remaining = end - Date.now();
+                if (remaining <= 0) {
+                    clearCountdown();
+                    window.ksUI.request('GameMode', 'Resume');
+                } else {
+                    element.textContent = String(Math.ceil(remaining / 1000));
+                }
+            }, 50);
+        });
+    }
     window.__acevoActiveResetTimer = function (elapsed, best, delta, finished, improved) {
+        if (elapsed < 0) clearCountdown();
         var timer = document.querySelector('acevo-snapshot');
         var hud = document.querySelector('ks-hud#mainHUD');
         if (!timer && hud && customElements.get('acevo-snapshot') && elapsed >= 0) {
@@ -89,6 +130,7 @@ const char pageScript[] = R"js(
             value: message,
             time_to_hide: 2200
         });
+        if (message === 'Snapshot restored') pauseForRestore();
         console.log('[ACEvoPerf] active reset notification: ' + message);
     };
     var definitions = [

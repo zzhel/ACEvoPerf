@@ -2,40 +2,29 @@
 #include "acevo/engine/active_reset_session.h"
 #include "acevo/ui/cohtml_hooks.h"
 #include "acevo/core/log.h"
-#include "snapshot_icons.h"
 
 namespace {
-std::atomic<uint64_t> snapshotEpoch{0};
+std::atomic<uint64_t> pendingNotice{0};
 void* mainView = nullptr;
 
 const char pageScript[] = R"js(
 (function () {
     'use strict';
-    if (window.__acevoActiveReset) return;
-    var active = false;
-    var available = false;
-    var indicator;
-    var inactivePng = ')js" ACEVO_SNAPSHOT_INACTIVE_URL R"js(';
-    var activePng = ')js" ACEVO_SNAPSHOT_ACTIVE_URL R"js(';
-    function paint(icon) {
+    if (window.__acevoActiveResetNotify) return;
+    window.__acevoActiveResetNotify = function (message) {
+        var panel = document.querySelector('ks-notificationpanel');
+        if (!panel || !panel.listNotifications || typeof engine === 'undefined') return;
         var season = window.SeasonInfo;
-        var multiplayer = document.body.classList.contains('multiplayer') ||
-            (season && season.mode === 'ClientCommandsMode_MULTIPLAYER');
-        icon.style.display = available && !multiplayer ? 'block' : 'none';
-        var label = active ? 'Snapshot saved' : 'No snapshot';
-        var source = active ? activePng : inactivePng;
-        if (icon.getAttribute('src') === source) return;
-        icon.setAttribute('src', source);
-        icon.setAttribute('alt', label);
-        icon.setAttribute('title', label);
-    }
-    window.__acevoActiveReset = function (allowed, value) {
-        var changed = active !== value;
-        available = allowed;
-        active = value;
-        if (!indicator) return;
-        paint(indicator);
-        if (changed) console.log('[ACEvoPerf] snapshot indicator ' + (active ? 'active' : 'inactive'));
+        if (document.body.classList.contains('multiplayer') ||
+            (season && season.mode === 'ClientCommandsMode_MULTIPLAYER')) return;
+        engine.trigger('UINotification', {
+            type: 'UIInternalNotification_Simple',
+            priority: 'UINotificationPriorityType_Normal',
+            extra: 'Active reset',
+            value: message,
+            time_to_hide: 2200
+        });
+        console.log('[ACEvoPerf] active reset notification: ' + message);
     };
     var definitions = [
         {number: 551, action: 'InputAction_AIDev_SaveSnapshot', name: 'AIDev SaveSnapshot', label: 'Active reset: Save snapshot'},
@@ -94,36 +83,14 @@ const char pageScript[] = R"js(
             };
             console.log('[ACEvoPerf] active reset controls registered');
         }
-        if (name === 'ks-sessionbanner' && !proto.__acevoResetIndicator) {
-            proto.__acevoResetIndicator = true;
-            var loaded = proto.onTemplateLoaded;
-            proto.onTemplateLoaded = function () {
-                loaded.apply(this, arguments);
-                if (!this.closest('ks-hud') || this.querySelector('.acevo-snapshot')) return;
-                var container = this.querySelector('.session-container');
-                if (!container) return;
-                var icon = document.createElement('img');
-                icon.className = 'acevo-snapshot';
-                icon.style.cssText = 'display:none;position:absolute;left:2.1rem;bottom:0.33rem;width:3.6rem;height:2.03rem;pointer-events:none';
-                icon.addEventListener('error', function () {
-                    console.error('[ACEvoPerf] snapshot indicator PNG failed to load');
-                });
-                indicator = icon;
-                container.insertBefore(icon, container.firstChild);
-                paint(icon);
-                console.log('[ACEvoPerf] snapshot indicator attached');
-            };
-        }
     }
     var define = customElements.define;
     customElements.define = function (name, elementClass, options) {
         patch(name, elementClass);
         return define.call(customElements, name, elementClass, options);
     };
-    ['ks-page-settings-controls', 'ks-sessionbanner'].forEach(function (name) {
-        var elementClass = customElements.get(name);
-        if (elementClass) patch(name, elementClass);
-    });
+    var controls = customElements.get('ks-page-settings-controls');
+    if (controls) patch('ks-page-settings-controls', controls);
 })();
 )js";
 
@@ -133,32 +100,37 @@ void OnView(void* view, int number, unsigned, unsigned)
     mainView = view;
     using ScriptFn = void (*)(void*, const char*);
     reinterpret_cast<ScriptFn>((*static_cast<void***>(view))[cohtml_slot::kViewAddInitialScript])(view, pageScript);
-    Log("[active-reset] controls and snapshot indicator script installed");
+    Log("[active-reset] controls and notification script installed");
 }
 
 void OnFrameEnd(bool after)
 {
     if (!after || !mainView) return;
-    static ULONGLONG lastUpdate = 0;
-    const auto now = GetTickCount64();
-    if (now - lastUpdate < 100) return;
-    lastUpdate = now;
-    using ScriptFn = void (*)(void*, const char*);
+    if (!pendingNotice.load(std::memory_order_relaxed)) return;
+    const uint64_t pending = pendingNotice.exchange(0, std::memory_order_acquire);
     const uint64_t epoch = ActiveResetSessionEpoch();
-    const char* script;
-    if (!(epoch & 1))
-        script = "window.__acevoActiveReset && window.__acevoActiveReset(false, false);";
-    else if (snapshotEpoch.load(std::memory_order_acquire) == epoch)
-        script = "window.__acevoActiveReset && window.__acevoActiveReset(true, true);";
-    else
-        script = "window.__acevoActiveReset && window.__acevoActiveReset(true, false);";
-    reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[60])(mainView, script);
+    if (!(epoch & 1) || (pending >> 3) != epoch) return;
+
+    const char* message = nullptr;
+    switch (static_cast<ActiveResetNotice>(pending & 7)) {
+        case ActiveResetNotice::Saved: message = "Snapshot saved"; break;
+        case ActiveResetNotice::Restored: message = "Snapshot restored"; break;
+        case ActiveResetNotice::NoSnapshot: message = "No snapshot saved"; break;
+        case ActiveResetNotice::SaveFailed: message = "Could not save snapshot"; break;
+        case ActiveResetNotice::RestoreFailed: message = "Could not restore snapshot"; break;
+    }
+    if (!message) return;
+
+    char script[160];
+    sprintf_s(script, "window.__acevoActiveResetNotify && window.__acevoActiveResetNotify('%s');", message);
+    using ScriptFn = void (*)(void*, const char*);
+    reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, script);
 }
 }
 
-void SetActiveResetSnapshot(uint64_t sessionEpoch)
+void NotifyActiveReset(uint64_t sessionEpoch, ActiveResetNotice notice)
 {
-    snapshotEpoch.store(sessionEpoch, std::memory_order_release);
+    pendingNotice.store((sessionEpoch << 3) | static_cast<uint64_t>(notice), std::memory_order_release);
 }
 
 void InstallActiveResetUi()

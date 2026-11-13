@@ -2,4 +2,13 @@
 #include "acevo/common.h"
 
 void InstallActiveResetUi();
-void SetActiveResetSnapshot(uint64_t sessionEpoch);
+
+enum class ActiveResetNotice : uint64_t {
+    Saved = 1,
+    Restored,
+    NoSnapshot,
+    SaveFailed,
+    RestoreFailed,
+};
+
+void NotifyActiveReset(uint64_t sessionEpoch, ActiveResetNotice notice);

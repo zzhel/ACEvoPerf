@@ -22,4 +22,4 @@ A solo practice test repeatedly restores a moving car's saved position, heading,
 
 The native binding experiment did nothing. The DLL prototype saves a checkpoint and restores position, speed and gear correctly in the user's solo practice test, with two successful restore calls logged. The local session guard and its test cases are in the linked research. The final one button interaction remains.
 
-The owner requested configurable entries in the game controls and a larger dotted car beside the session timer, grey without a snapshot and green with one. The icon and actions are gated to local sessions. Live logs show captures, successful restore returns and XInput remapping after Apply. DirectInput wheel hardware still needs a live test.
+The owner requested configurable entries in the game controls and in-game notifications for snapshot actions. Both actions and notifications are gated to local sessions. Live logs show captures, successful restore returns and XInput remapping after Apply. DirectInput wheel hardware still needs a live test.

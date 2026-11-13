@@ -33,7 +33,6 @@ void ClearCheckpoint()
     checkpointCar = nullptr;
     checkpointWorld = nullptr;
     checkpointId = {};
-    SetActiveResetSnapshot(0);
 }
 
 void StepProbe(BYTE* controller, float delta, double time)
@@ -90,21 +89,25 @@ void StepProbe(BYTE* controller, float delta, double time)
                     checkpointCar = car;
                     checkpointWorld = world;
                     checkpointId = id;
-                    SetActiveResetSnapshot(epoch);
+                    NotifyActiveReset(epoch, ActiveResetNotice::Saved);
                     Log("[active-reset-probe] saved checkpoint, bytes=%zu", size_t(checkpoint.last - checkpoint.first));
                 } else {
                     ClearCheckpoint();
+                    NotifyActiveReset(epoch, ActiveResetNotice::SaveFailed);
                     Log("[active-reset-probe] save failed");
                 }
             } else {
                 Log("[active-reset-probe] save refused; requires exactly one physics car");
+                NotifyActiveReset(epoch, ActiveResetNotice::SaveFailed);
             }
         } else if (focused && loadDown) {
             if (car && checkpoint.first) {
                 const bool restored = restoreSnapshot(controller, &id, &checkpoint);
+                NotifyActiveReset(epoch, restored ? ActiveResetNotice::Restored : ActiveResetNotice::RestoreFailed);
                 Log("[active-reset-probe] restore returned %d; driving result requires verification", restored ? 1 : 0);
             } else {
                 Log("[active-reset-probe] no checkpoint for this car");
+                NotifyActiveReset(epoch, ActiveResetNotice::NoSnapshot);
             }
         }
         return;

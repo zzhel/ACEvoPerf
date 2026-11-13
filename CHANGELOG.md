@@ -7,7 +7,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 ### Added
 
 - Optional active reset experiment for solo practice, disabled by default.
-- Configurable save and restore controls and a dotted snapshot icon in solo sessions. The icon and actions are disabled in multiplayer.
+- Configurable save and restore controls with in-game snapshot notifications in solo sessions.
 
 ## 0.3.2 (2026-09-18)
 

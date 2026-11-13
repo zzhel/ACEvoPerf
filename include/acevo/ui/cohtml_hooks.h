@@ -30,5 +30,6 @@ namespace cohtml_slot {
     static const int kLibraryExecuteWork = 5;
     static const int kSystemCreateView = 3;
     static const int kViewAdvance = 6;
+    static const int kViewExecuteScript = 60;
     static const int kViewAddInitialScript = 61;
 }

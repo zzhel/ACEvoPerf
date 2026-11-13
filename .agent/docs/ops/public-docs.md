@@ -1,16 +1,21 @@
 ---
 name: public-docs
 kind: doc
-description: how the readme, the changelog and the readme in the zip are written, for players who have never seen the code, and how the next version is tracked, set on 2026-09-15 after the owner called the old ones AI slop
-updated: 2026-09-15
-links: [build-and-release, feedback-public-docs-are-for-players, feedback-ship-as-installable-mod, TODO-020-cut-0-3-2-after-the-three-open-investigations]
+description: how the readme, the changelog, the readme in the zip and the release notes are written, for players who have never seen the code, and how the next version is tracked, set on 2026-09-15 after the owner called the old ones AI slop
+updated: 2026-10-08
+links: [build-and-release, feedback-public-docs-are-for-players, feedback-ship-as-installable-mod, TODO-020-cut-0-3-2-after-the-three-open-investigations, reported-working-configurations]
 ---
 
 # Public docs
 
 Three files leave the repo and get read by players. `README.md` on GitHub, `CHANGELOG.md`, and
-`dist/README.txt` inside the zip. The GitHub release notes and the Overtake description are cut from
+`dist/README.txt` inside the zip. The GitHub release notes and the Overtake changelog are cut from
 the same text. Their reader downloaded a mod and has never seen the code.
+
+The GitHub release notes follow 0.3.2's shape, a `## New in <version>` heading over the version's Fixed,
+Added and Changed sections and nothing else. No install steps, credits or links, and no Known issues or
+Game issues, which describe the mod as it stands and live in the readme. The owner set this on
+2026-10-08 and keeps the Overtake changelog the same way.
 
 On 2026-09-15 the owner read the readme and the changelog and called them AI slop and word salad.
 They were written for someone who already knew the codebase, with a paragraph of mechanism behind
@@ -49,19 +54,28 @@ The sections, in order.
 5. Install, then Uninstall, both numbered
 6. Settings, a few sentences about the ini
 7. Problems, what to do and which file to attach
-8. How it works, one short paragraph and one or two plain sentences per fix
-9. Build, numbered steps with the commands
-10. Credits
+8. Known issues, the mod's own limits a player will notice
+9. Game issues, under one line saying they are the game's own and happen without the mod too
+10. How it works, one short paragraph and one or two plain sentences per fix
+11. Build, numbered steps with the commands
+12. Credits
 
 There is no "what else it does" section. Anything a player gets by default goes under What it adds
 and the rest lives in the ini notes.
 
+The cards in the overview come from player reports kept in
+[reported-working-configurations](../../memory/reported-working-configurations.md), and the readme line
+changes only when that file does. A fix the changelog calls partial is named in What it fixes only for the part
+that is fixed.
+
 ## CHANGELOG.md
 
-- The top section is always the next version, `## 0.3.2 (unreleased)` while `v0.3.1` is the last
-  tag, never a bare `Unreleased`.
-- A version's sections are Fixed, Added, Changed and Known issues, in that order, each only when it
-  has entries.
+- The top section is the next version, `## 0.3.2 (unreleased)` while `v0.3.1` is the last tag, or
+  `## Next (unreleased)` while the owner has not named it yet, never a bare `Unreleased`.
+- A version's sections are Fixed, Added, Changed, Known issues and Game issues, in that order, each only
+  when it has entries. Known issues are the mod's own. Game issues are what players see that the game
+  does without the mod too, said plainly as the game's under one line that says so, set by the owner on
+  2026-10-08 so players stop putting the game's faults on the mod.
 - One entry per user visible change, written in the same commit as the change. One sentence, or two
   when the player has to do something.
 - Work that landed and came out again before a release gets no entry, and neither does a fix to
@@ -71,15 +85,18 @@ and the rest lives in the ini notes.
 ## dist/README.txt
 
 Plain text for Notepad, lines wrapped near 76 characters. Install, Settings, Uninstall and Problems
-as numbered steps or a few sentences, then the Microsoft credit line. Nothing a player cannot act on.
+as numbered steps or a few sentences, then the Microsoft credit line naming the licence and notices
+files the zip carries. Nothing a player cannot act on. The uninstall's Steam step says why it matters,
+since without it the game will not start, and the update advice says to keep a changed ini.
 
 ## Versions
 
-The version after the last tag is the next patch number unless the owner names another. Right after
-a release is tagged, open the next version's changelog section and bump `ACEVO_PERF_VERSION` in
-`include/acevo/common.h` and the four version fields in `src/version.rc` in one commit, so a build of
-main reports the version it will ship as. Cutting the release swaps `(unreleased)` for the date, the
-steps are in [build-and-release](build-and-release.md).
+The next version is the owner's to name, and nothing is bumped before that (DEC-026). Once it is named,
+open its changelog section and bump `ACEVO_PERF_VERSION` in `include/acevo/common.h` and the four
+version fields in `src/version.rc` in one commit. Until then a user visible change still gets its
+changelog line, under a `## Next (unreleased)` heading that takes the version's number when it is named.
+Cutting the release swaps `(unreleased)` for the date, the steps are in
+[build-and-release](build-and-release.md).
 
 ## Before and after, 2026-09-15
 

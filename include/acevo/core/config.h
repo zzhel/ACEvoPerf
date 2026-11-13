@@ -11,7 +11,7 @@ struct Config {
     bool frames = false;        // acevo_perf_frames.csv, one line per presented frame
     bool streamingTrace = false; // acevo_perf_streaming.csv, texture streamer and tile request events
     bool logRequests = false;   // every DirectStorage request in the log
-    bool throwLog = false;      // count the game's C++ exceptions by throw site
+    bool throwLog = false;      // count the exe's own C++ throws by throw site
     bool traceFileIo = false;   // log the game's file I/O on the package
     bool loadSampler = false;   // suspends game threads to read them
     int  loadSampleUs = 1000;
@@ -47,6 +47,11 @@ struct Config {
     bool sessionLeakFix = true;      // free the finished sessions the game keeps in memory
     // [flags]
     std::vector<std::wstring> flags; // "name=value" or "name"
+
+    // What LoadConfig had to correct on the way in, printed by DllMain once the log file is open.
+    // LoadConfig runs first, because the log's own path comes out of the ini, so a Log call in
+    // there would be written to a file nobody has opened yet.
+    std::vector<std::string> iniNotes;
     // [dxgi]
     bool dxgiEnabled = true;
     bool frameStats = true;
@@ -58,6 +63,8 @@ struct Config {
     std::wstring overlayFolder = L"acevo_mods";
     bool overlayClearXor = true;    // serve override entries as plain data (XOR flag cleared)
     bool fixBigScreens = true;      // serve the trackside flipbook with one mip level, BUG-017
+    // [experimental], off by default
+    bool tilePoolFromBudget = false; // tile_pool_mb=auto sized from the budget and the screen, DEC-027
 };
 
 extern Config g_cfg;

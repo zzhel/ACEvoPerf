@@ -2,8 +2,8 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-08-14
-links: [spec-reviews, spec-bugs, spec-todos, agent-readme]
+updated: 2026-10-08
+links: [spec-reviews, spec-bugs, spec-todos, agent-readme, DEC-026-work-merges-into-main-after-0-4]
 ---
 
 # House Rules
@@ -23,11 +23,19 @@ CLAUDE.md section 0 names its exact gates and tooling.
 2. **Sweeps carry the small stuff.** Small bugs and small features group
    into a sweep branch by surface, one screen or one subsystem per sweep.
    A sweep never contains a breaking change.
-3. **Branch from fresh main.** Merge whole, never cherry pick out of an
-   unreviewed branch. A merged branch is deleted, its review ledger is
-   the record.
-4. **Main is reviewed code only.** Gates first, then review, then PR,
-   then merge. No step skips.
+3. **Branch from main.** Every branch cuts from main and merges back
+   into it on the owner's word (DEC-026). No version branch is open
+   until the owner names the next version. Merge whole, never cherry
+   pick out of an unreviewed branch. A merged branch is deleted, its
+   review ledger is the record.
+4. **A release is a tag on main.** The version stays at the last
+   release until the owner names the next one, and a release is cut
+   from main and tagged there. Gates first, then review, then PR, then
+   merge. No step skips.
+5. **The next version is the owner's to name.** When the owner names
+   it, the version files, `src/version.rc`, `include/acevo/common.h` and
+   the `CHANGELOG.md` heading, are bumped in one commit on a branch
+   merged into main.
 
 ## The gates
 
@@ -65,8 +73,11 @@ works, reviewers never burn effort on red suites.
    - A separate verifier sub agent checks bug wise, not code wise: is
      each bug actually gone, did anything new surface in scope. The loop
      repeats until the verifier comes back clean.
-   - Sub agents run one at a time, sequentially. This is the named
-     carve-out from the single threaded research rule.
+   - Sub agents may run in parallel wherever the work splits, for
+     instance investigators or hunters over different lenses of one
+     scope. A verifier still runs after the fixes it checks. The owner
+     lifted the old one at a time rule on 2026-09-24 to make reviews
+     faster.
 5. **Batch close.** Mark it in the ledger, report to the owner, and name
    anything unfixable in scope. Unfixables defer into `.agent/bugs/` as
    their own files, linked both ways, and earn a future branch sparingly,
@@ -89,7 +100,8 @@ works, reviewers never burn effort on red suites.
 - PRs only on the owner's explicit ask in the current message, through
   the project's PR tooling, base main. Merges only on the owner's
   explicit ask.
-- Never commit to main directly.
+- Never commit to main or to the open version branch directly. Both only
+  ever receive merges.
 - Worktrees are disabled: never create one, and never use a worktree
   isolation mode for sub-agents. If the owner ever explicitly asks, the
   one sanctioned home is `.agent/.worktrees/` (gitignored), nowhere

@@ -1,0 +1,133 @@
+---
+name: reported-working-configurations
+kind: memory
+description: the machines players report the mod working on and where each report came from, Nvidia and Radeon and Linux through Proton, plus the open reports, most of the graphical ones now BUG-039, the shader cache the mod turns on, because the readme claims a list and nothing else in the repo recorded it
+updated: 2026-10-16
+type: project
+links: [public-docs, DEC-013-overtake-front-door-github-mirror, BUG-015-night-headlights-do-not-light-trees-with-the-pso-cache, BUG-039-the-pso-cache-draws-some-materials-wrong]
+---
+
+The mod is developed on one machine, an RTX 3060 Laptop GPU with 6 GB. Everything else in the `Overview`
+section of `README.md` is a player report, and this is where those reports live so the claim has a source
+that can be checked before a release repeats it.
+
+## Reported working
+
+From the Overtake listing reviews and the r/assettocorsaevo thread, all on 0.3.1 or 0.3.2.
+
+- RTX 2060 6 GB, twice, one with an i7 7700 and one with a Ryzen 5 7600 on a SATA SSD
+- RTX 3060 Ti with a Ryzen 5
+- RTX 3070 Ti
+- RTX 3080 10 GB
+- RTX 4050 6 GB laptop, named VRAM overflow and stuttering as what stopped
+- RTX 4060, twice, one of them 8 GB at 1440p with DLSS Quality
+- Radeon RX 6600, "works great". That reporter turned Reflex off in the ini, which is only sensible on an
+  AMD card and says nothing either way about the rest of the mod, since Reflex is one small addition
+  beside the streaming, memory and UI work.
+- One report of a 6 GB card that did not say which
+- RTX 5070 Ti with a 9800X3D, on 0.4.0, from an Overtake review on 2026-10-09, better GPU and video memory
+  use than 0.3.2, the first card above 6 GB on record running 0.4's budget sizing
+- RTX 4060 8 GB with an i7 14700F on triple 1080p screens, the shader cache reporter of the open reports
+  below, on 0.4.0 with no issues, 2026-10-09. Spanned triples give the budget sizing its largest screen
+  reserve on record, about 2.3 GB of tiles on that card where one 1080p screen gets 2.9
+- An 8 GB card of unstated model on 0.4.0 with `tile_pool_mb=auto`, confirmed by its owner, smooth in a 26
+  car online lobby apart from network spikes, 2026-10-09. The same player had set 5120 by hand on 0.3.2
+  to stop load screen hangs on car changes.
+
+## Reported working on Linux, 2026-09-20
+
+Reported on the reddit thread by the user who had asked a day earlier whether it would work, after the
+owner answered that he had no idea and to give it a shot.
+
+- Arch Linux, kernel 7.2.6-zen2-1-zen, x86_64
+- COSMIC 1.8.0, 2560x1440 at 165 Hz
+- Ryzen 9 5900X, RTX 3080, 31.23 GiB
+- GE-Proton11-7
+- The game's own launch options were
+  `VKD3D_CONFIG=force_raw_va_cbv PROTON_ENABLE_WAYLAND=1 gamemoderun %command%`
+
+Those launch options are the reporter's own for the game and are not something the mod asks for. One
+report on one distribution and one Proton build is not a supported platform, which is why the readme says
+"reported working" rather than "supported".
+
+## On Linux with 0.4.0, 2026-10-09
+
+A GitHub issue from a player under Proton with an RTX 3080 10 GB on one 1440p screen: 90 to 100 fps on
+0.3.2, about 20 with a broken rear view mirror on 0.4.0, and both fixed by the build with the 0.3.2 table,
+published as `v0.4.0-linux` (BUG-040, DEC-027). The readme's Known issues points Linux players at it.
+
+## Open reports
+
+The hardware is written down only because the reporter gave it, and not as a grouping. The owner's call
+of 2026-09-19 on the first one was that the card and the fault are unrelated. Since 2026-10-08 most of the
+graphical ones read as BUG-039, the shader cache the mod turns on, which the flag off cured for everyone
+who tried it. That leans toward the 40 series without proving it, and it is a fault of the cache rather
+than of any card.
+
+- Fences take on a glass look. Reported by someone on a 4090, then on a 4060 8 GB on every launch, and
+  seen on the owner's machine on 2026-09-24. Now one symptom of BUG-039, the shader cache the mod turns
+  on. The same 4060 player saw pit fencing flashing every frame, and a second machine of theirs, a 2070
+  8 GB, never showed either.
+- Cars glowing. Reported once, by someone on a 4070 Ti with a 14700K and 64 GB. The owner's answer was to
+  restart the game and send the log if it persisted, and no log came back. Possibly BUG-039 as well.
+- Single player improved and multiplayer freezes stayed. Reported once, by someone who said only "Radeon
+  here". There is no Radeon on hand to look into it.
+- Worse performance, stutters at fixed places on a track and trees bright white in night races, on the
+  game's 0.9. Reported once, on 2026-09-25, with no card, no settings, no numbers and no log. The white
+  trees now read as BUG-039, and the stutters are still unexplained. The same player later found the game
+  smooth at Ultra, with liveries sharpening slowly on a game installed on a hard disk.
+- A car's own main beam vanishing at night on a server, seen in VR, card not given. Read as BUG-039.
+- About 6 fps more, 82 to 88 in the pit box, after toggling fullscreen off and on and pressing Apply,
+  repeatable on the 4060 player's second PC, an RTX 2070 8 GB with a Ryzen 7 3700X and 16 GB of RAM on
+  triple 1080p screens with DLSS Performance, and not on the 4060 itself. On the reference laptop on
+  2026-10-13 two applies changed nothing, 93.6, 93.3 and 93.4 fps with the same video memory, clocks and
+  power, the card pinned at 98 percent (`logs/fullscreen-toggle-20261013/run2`). The 2070 run of the same
+  day (`logs/rich-2070-fullscreen-20261013`) measured it: 77 fps before, 85 after the first apply and held
+  for the minute, the card at 100 percent and its 175 W limit both times at the same or lower clocks, video
+  memory under budget both times and 46 MB lower after, and the game log's render settings identical,
+  2880x540 DLSS on 5760x1080 triples. So the card does about a tenth less work per frame after the reset,
+  for a reason nothing logged shows. The best guess is presentation: the swap chain is made 0.26 s before
+  the window goes fullscreen, which may leave every frame going through the desktop compositor until the
+  apply. The second apply added a 50 to 80 ms stall every 5.05 s with no streaming behind it, absent on the
+  reference laptop after its second apply. A PresentMon run the same evening
+  (`logs/rich-2070-presentmon-20261013`, three applies) ruled the presentation guess out: every frame of
+  the run is `Composed: Flip`, before and after each apply. The gain is the game's own GPU work, a median of
+  12.87 ms busy per frame before and 12.07 after the first apply with the GPU never waiting, 77 to 82.5 fps,
+  with no UI view, swap chain or Reflex change in the mod's log. The second apply brought the 5 s stall back,
+  30 ms this time and all CPU, and the third cleared it. Without the mod on 2026-10-15 he read 87 fps,
+  then 90 and 90 after two applies, against 82 to 88 with it the same evening, by eye from the Steam
+  counter. His PresentMon file of that run (`logs/rich-2070-nomod-20261015`) covers only 15 s of menu and
+  the game log he sent was the 2026-10-13 one, but those 15 s show `Hardware: Independent Flip` with
+  tearing allowed, where every frame of both runs with the mod was `Composed: Flip`. If that holds in the
+  pit box, the mod is blocking the direct path on his Surround setup, which would be the mod's own fps
+  cost there. The reference laptop runs independent flip with the mod (`logs/presentmon-drive-20260915`).
+- A 5090 VR player with a Pimax Crystal Light and OpenKneeboard has 0.4 crash every launch with a stack
+  overflow on the game thread about 3 s into the first menu load, and 0.3.2 once, game logs in
+  `logs/vr-5090-crash-20261009`. Cause not known. A second try on 2026-10-13 without OpenKneeboard died
+  earlier and for another reason: the Pimax runtime got 212 "RPC server unavailable" errors from its own
+  service, OpenXR found no headset (`XR_ERROR_SYSTEM_INVALID`) and the game threw at `VRManager.cpp:790`,
+  before it made a graphics device, which it would do without the mod. That run also shows the OpenXR
+  layers he runs, OpenXR Toolkit, OpenXR Motion Compensation and the RaceLab overlay. On 2026-10-14 he ran
+  0.4 without OpenKneeboard with no crash, and on 2026-10-15 with it the same stack overflow came back at the
+  same place (`logs/vr-5090-crash-20261009/run-20261015-openkneeboard`). The mod's log ends on its first
+  `Present sync interval` line, the game's first present of the 1280x720 mirror swap chain, 11 ms before
+  the overflow. OpenKneeboard hooks Present as well, and the mod's Present hook in `frame_stats.cpp` is a
+  vtable patch for Reflex and the frame times, so two hooks calling into each other is the leading reading.
+  With `reflex=0` and `frame_stats=0` the mod installs no Present hook at all.
+
+The 4060 8 GB player above also reported much steadier frame rates with the mod, which makes a third 4060
+in the list above in all but name.
+
+These are not in the readme list, because nobody on those machines said the mod worked for them, not
+because the cards are suspect. Reading a list of faults as a list of bad cards is exactly the inference to
+avoid.
+
+## What this is not
+
+Not a support matrix and not a promise. Nothing here was tested by us, every line is somebody's word, and
+four of the reports are unexplained, one of them now seen here. Keep it that way in the readme's wording.
+
+## How to apply it
+
+A new report goes in here with its date and its source when it arrives, and the readme line changes only
+when this file does. A card whose only report is a fault goes in the section above it, not in the list.

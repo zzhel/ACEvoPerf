@@ -47,7 +47,17 @@ Snapshots remain in a game-allocated byte vector. The native vector move assignm
 
 Exactly one car is a prototype constraint, not proof of a single-player session. Automatic multiplayer exclusion is not implemented, so this build is only for an explicitly requested solo test. The user has been told this limitation. A release needs a verified session guard and the final one button interaction.
 
-## Verification still needed
+## Controls and HUD experiment
+
+The controls page now exposes actions 551 and 552 as Active reset: Save snapshot and Active reset: Restore snapshot in the Car group. An initial script wraps the stock controls component and supplies missing rows from the current input configuration; the stock binding editor retains capture, conflicts, Apply and persistence. The user confirmed the rows appear. The settings files also confirmed remapped N/M keyboard bindings and XInput buttons 7/13 persisted.
+
+The first input detour at `0x7414a0` did not receive those actions during the live test. Its UI rows worked, but save and restore regressed. The revised detour observes the shared resolved-input helper at `0x20e8890`, called after keyboard and device button press/repeat handling. It forwards all five original arguments and queues only 551/552 for the physics thread, with a 500 ms expiry. Hardcoded I/U polling is removed. The native callback is guarded by an instruction hash.
+
+The session banner script inserts an SVG with a dotted trailing car and solid leading car. The state is published atomically from successful snapshot saves and checkpoint clearing, then sent to the main Cohtml view after the UI frame completes. View slot 60 accepts a C string, confirmed from the installed DLL's `0x479ab0` implementation. The original icon placement outside the banner was clipped by `.session-info { overflow: hidden; }`; the revised icon occupies the existing left margin before the timer. Grey means no checkpoint and green means a saved checkpoint.
+
+The revised DLL builds with zero errors. A standalone script harness checks keyboard remapping, wheel mapping, duplicate row prevention, labels and grey/green transitions. Live input and indicator verification is pending; the first combined build failed the live test. Do not treat the harness as proof of native game behavior.
+
+## Remaining verification
 
 Add a verified session guard and the final one button interaction. Validate car and session changes, other car types and repeated checkpoint replacement. Position, speed and gear are confirmed by the user in the initial solo practice test.
 

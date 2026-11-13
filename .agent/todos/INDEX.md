@@ -12,7 +12,7 @@ links: [agent-index, spec-todos]
 
 foundation
 
-- [TODO-029-active-reset](TODO-029-active-reset.md), per-car save and restore verified in solo practice, session guard and one button interaction remain
+- [TODO-029-active-reset](TODO-029-active-reset.md), solo snapshot verified, controls rows persist, revised input and HUD integration awaiting live retest
 
 release
 

@@ -2,14 +2,13 @@
 #include "acevo/core/code_patch.h"
 #include "acevo/core/config.h"
 #include "acevo/core/log.h"
+#include "acevo/ui/active_reset_ui.h"
 
 namespace {
 using StepFn = void (*)(BYTE*, float, double);
 StepFn originalStep = nullptr;
 BYTE* expectedVtable = nullptr;
 BYTE* lastController = nullptr;
-bool wasSaveDown = false;
-bool wasLoadDown = false;
 bool reportedMismatch = false;
 struct Blob { BYTE* first; BYTE* last; BYTE* capacity; };
 struct CarId { uint64_t low; uint64_t high; };
@@ -31,6 +30,7 @@ void ClearCheckpoint()
     checkpointCar = nullptr;
     checkpointWorld = nullptr;
     checkpointId = {};
+    SetActiveResetSnapshot(false);
 }
 
 void StepProbe(BYTE* controller, float delta, double time)
@@ -48,14 +48,14 @@ void StepProbe(BYTE* controller, float delta, double time)
         Log("[active-reset-probe] physics callback reached, thread=%lu controller=%p dt=%.6f",
             GetCurrentThreadId(), controller, delta);
         lastController = controller;
-        wasSaveDown = false;
-        wasLoadDown = false;
+        TakeActiveResetAction();
     }
     DWORD foregroundPid = 0;
     GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
     const bool focused = foregroundPid == GetCurrentProcessId();
-    const bool saveDown = (GetAsyncKeyState('I') & 0x8000) != 0;
-    const bool loadDown = (GetAsyncKeyState('U') & 0x8000) != 0;
+    const unsigned action = TakeActiveResetAction();
+    const bool saveDown = action == 551;
+    const bool loadDown = action == 552;
     if (snapshotExperiment) {
         const auto world = *reinterpret_cast<BYTE**>(controller + 0x2dc0);
         const auto first = world ? *reinterpret_cast<uintptr_t*>(world + 0x10) : 0;
@@ -69,7 +69,7 @@ void StepProbe(BYTE* controller, float delta, double time)
             ClearCheckpoint();
             Log("[active-reset-probe] checkpoint cleared after car/world change");
         }
-        if (focused && saveDown && !wasSaveDown) {
+        if (focused && saveDown) {
             if (car && (id.low || id.high)) {
                 ClearCheckpoint();
                 const bool saved = saveSnapshot(controller, &id, &checkpoint);
@@ -77,6 +77,7 @@ void StepProbe(BYTE* controller, float delta, double time)
                     checkpointCar = car;
                     checkpointWorld = world;
                     checkpointId = id;
+                    SetActiveResetSnapshot(true);
                     Log("[active-reset-probe] saved checkpoint, bytes=%zu", size_t(checkpoint.last - checkpoint.first));
                 } else {
                     ClearCheckpoint();
@@ -85,7 +86,7 @@ void StepProbe(BYTE* controller, float delta, double time)
             } else {
                 Log("[active-reset-probe] save refused; requires exactly one physics car");
             }
-        } else if (focused && loadDown && !wasLoadDown) {
+        } else if (focused && loadDown) {
             if (car && checkpoint.first) {
                 const bool restored = restoreSnapshot(controller, &id, &checkpoint);
                 Log("[active-reset-probe] restore returned %d; driving result requires verification", restored ? 1 : 0);
@@ -93,11 +94,9 @@ void StepProbe(BYTE* controller, float delta, double time)
                 Log("[active-reset-probe] no checkpoint for this car");
             }
         }
-        wasSaveDown = saveDown;
-        wasLoadDown = loadDown;
         return;
     }
-    if (focused && ((saveDown && !wasSaveDown) || (loadDown && !wasLoadDown))) {
+    if (focused && (saveDown || loadDown)) {
         const auto world = *reinterpret_cast<BYTE**>(controller + 0x2dc0);
         size_t count = 0;
         if (world) {
@@ -107,10 +106,8 @@ void StepProbe(BYTE* controller, float delta, double time)
                 count = (last - first) / sizeof(void*);
         }
         Log("[active-reset-probe] key=%s physics_cars=%zu thread=%lu; diagnostic only, no state changed",
-            saveDown && !wasSaveDown ? "I" : "U", count, GetCurrentThreadId());
+            saveDown ? "Save" : "Restore", count, GetCurrentThreadId());
     }
-    wasSaveDown = saveDown;
-    wasLoadDown = loadDown;
 }
 }
 
@@ -157,6 +154,11 @@ void InstallActiveResetProbe()
     moveBlob = reinterpret_cast<MoveBlobFn>(exe + 0x1117800);
     snapshotExperiment = GetPrivateProfileIntW(L"probe", L"solo_snapshot_experiment", 0, ini.c_str()) != 0;
     expectedVtable = exe + 0x3231a70;
+    if (!InstallActiveResetUi(exe)) {
+        VirtualFree(relay, 0, MEM_RELEASE);
+        Log("[active-reset-probe] native input hook failed; reset disabled");
+        return;
+    }
     if (!WriteCode(call, patch, sizeof patch)) {
         VirtualFree(relay, 0, MEM_RELEASE);
         Log("[active-reset-probe] call patch failed");
@@ -164,5 +166,5 @@ void InstallActiveResetProbe()
     }
     Log("[active-reset-probe] installed for EVO 0.9.1; snapshot_experiment=%d", snapshotExperiment ? 1 : 0);
     if (snapshotExperiment)
-        Log("[active-reset-probe] solo practice test only: I saves, U restores; multiplayer exclusion is not implemented");
+        Log("[active-reset-probe] solo practice test only: bind Save/Restore snapshot in Controls; multiplayer exclusion is not implemented");
 }

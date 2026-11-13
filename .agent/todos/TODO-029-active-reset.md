@@ -21,3 +21,5 @@ You activate it on a part of the map, drive past that part of the map, then acti
 A solo practice test repeatedly restores a moving car's saved position, heading, speed and gear through one checkpoint button. A separate command replaces the checkpoint. Session changes clear it, and multiplayer cannot activate it.
 
 The native binding experiment did nothing. The DLL prototype saves a checkpoint and restores position, speed and gear correctly in the user's solo practice test, with two successful restore calls logged. Automatic multiplayer exclusion, broader session invalidation tests and the final one button interaction remain. See the linked research for addresses and limitations.
+
+The owner also requested configurable entries in the game controls and a snapshot icon beside the session timer, grey without a snapshot and green with one, showing a dotted car following a solid car. Controls rows and native binding persistence are verified. The first combined build lost input handling and clipped the icon; a revised input hook and placement are installed, awaiting a live retest.

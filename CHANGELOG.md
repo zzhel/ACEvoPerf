@@ -11,6 +11,10 @@ Every version of ACEvoPerf and what changed in it, newest first.
 - See how far ahead or behind your best active reset attempt you are.
 - Use the run that sets the finish gate as your first best time.
 
+### Fixed
+
+- Snapshot times and the delta bar now have their own display.
+
 ## 0.4.0 for Linux (2026-10-08)
 
 A separate download of 0.4.0 for Linux and Proton.

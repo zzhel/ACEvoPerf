@@ -35,7 +35,7 @@ const char pageScript[] = R"js(
                 return;
             }
             var element = document.createElement('div');
-            element.style.cssText = 'position:fixed;top:38%;left:0;width:100%;text-align:center;color:white;font:700 4rem rajdhani-mono,sans-serif;text-shadow:0 2px 4px black;pointer-events:none;z-index:9999';
+            element.style.cssText = 'position:fixed;top:38%;left:0;width:100%;text-align:center;color:white;font:700 8rem rajdhani-mono,sans-serif;text-shadow:0 2px 4px black;pointer-events:none;z-index:9999';
             document.body.appendChild(element);
             pending.element = element;
             var end = Date.now() + 3000;

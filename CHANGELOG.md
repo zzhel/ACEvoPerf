@@ -19,6 +19,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 - A new best snapshot time flashes at the finish, and the delta bar is wider.
 - The snapshot delta stays visible when you stray from your best run's line.
 - Restoring a snapshot pauses the game for a three-second countdown.
+- The snapshot countdown is easier to read.
 
 ## 0.4.0 for Linux (2026-10-08)
 

@@ -63,7 +63,7 @@ The guard starts closed. The session start routine at `0x78b1b0` accepts a tagge
 
 Physics checks the guard before polling the bindings. A new session generation invalidates the previous snapshot even if the same physics objects are reused. The HUD stays hidden while the guard is closed and also honours the game's multiplayer mode. A local test covered remote and failed starts, a successful local start, joining during startup, connecting and exiting. A UI test covered visibility and the grey and green images. Multiplayer server testing has not been performed.
 
-The build embeds the owner's 167 by 94 PNGs from `assets/snapshot-inactive.png` and `assets/snapshot-active.png`. It strips the print-density chunk from the embedded copies to fit the installed Gameface build's 2048-character image URL limit. The decoded pixels match the supplied files exactly. The HUD preserves their aspect ratio and leaves space between the visible outline and the timer.
+The build embeds the owner's 167 by 94 PNGs from `assets/snapshot-inactive.png` and `assets/snapshot-active.png`. It strips the print-density chunk and, if the URL still exceeds Gameface's limit, scales the embedded copy down while preserving transparency and aspect ratio. The original assets stay intact. The HUD leaves space between the visible outline and the timer.
 
 This guard only controls active reset. It does not remove the proxy DLL or other in-memory hooks. Use the original game files for a multiplayer launch.
 

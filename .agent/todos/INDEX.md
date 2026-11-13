@@ -12,7 +12,7 @@ links: [agent-index, spec-todos]
 
 foundation
 
-- [TODO-029-active-reset](TODO-029-active-reset.md), native snapshot commands found, solo practice save and load test pending before the one button implementation
+- [TODO-029-active-reset](TODO-029-active-reset.md), native key test failed, physics callback and I/U presses verified in solo practice, state restoration remains
 
 release
 

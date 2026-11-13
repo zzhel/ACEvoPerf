@@ -27,7 +27,7 @@ line in the same commit.
 
 ## The knowledge
 
-- [docs/INDEX.md](docs/INDEX.md), the knowledge library: 34 docs in four categories, including the native active reset investigation
+- [docs/INDEX.md](docs/INDEX.md), the knowledge library: 34 docs in four categories, including the failed native key test and active reset diagnostic
   - foundation: [proxy-architecture](docs/foundation/proxy-architecture.md), the DLL in load order
   - systems: [directstorage-streaming](docs/systems/directstorage-streaming.md), [engine-flags](docs/systems/engine-flags.md), [content-package](docs/systems/content-package.md), [package-override-layer](docs/systems/package-override-layer.md), [settings-files](docs/systems/settings-files.md), [responsive-ui](docs/systems/responsive-ui.md), [session-leak-fix](docs/systems/session-leak-fix.md)
   - ops: [telemetry](docs/ops/telemetry.md), [build-and-release](docs/ops/build-and-release.md), [tools](docs/ops/tools.md), [public-docs](docs/ops/public-docs.md)

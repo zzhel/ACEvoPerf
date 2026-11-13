@@ -20,4 +20,4 @@ You activate it on a part of the map, drive past that part of the map, then acti
 
 A solo practice test repeatedly restores a moving car's saved position, heading, speed and gear through one checkpoint button. A separate command replaces the checkpoint. Session changes clear it, and multiplayer cannot activate it.
 
-Native snapshot commands, populated serializers and keyboard action IDs have been found in the release executable. The first experiment uses separate save and load bindings. Live verification is pending. See the linked research for addresses and limitations.
+Native snapshot commands and per-car methods have been found in the release executable. The separate save and load binding experiment did nothing. The guarded physics callback diagnostic is built and verified in solo practice with three I/U pairs on the physics thread. It does not save or restore yet. See the linked research for addresses and limitations.

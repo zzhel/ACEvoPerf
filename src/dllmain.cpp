@@ -23,6 +23,7 @@
 #include "acevo/engine/exceptions.h"
 #include "acevo/engine/session_leak_fix.h"
 #include "acevo/engine/streamer.h"
+#include "acevo/engine/active_reset_probe.h"
 #include "acevo/render/frame_stats.h"
 #include "acevo/render/dxgi_hooks.h"
 #include "acevo/overlay/overlay.h"
@@ -66,6 +67,7 @@ static void OnAttach(HMODULE h)
     ApplyFlags("early");
     InstallStreamerHooks();
     InstallSessionLeakFix();
+    InstallActiveResetProbe();
     InstallResponsiveUi();
     InstallUiProbe();
     InstallCohtmlHooks();

@@ -1,14 +1,14 @@
 ---
 name: active-reset-2026-11-13
 kind: doc
-description: native physics snapshots and input actions found in the release executable, live reset test pending
+description: native key test failed, the guarded physics callback and I/U key edges are verified in solo practice
 updated: 2026-11-13
 links: [moddability, TODO-029-active-reset]
 ---
 
 # Active reset
 
-Static analysis found a native snapshot route worth testing before adding DLL hooks. No runtime success is claimed.
+Static analysis found a native snapshot route. The keyboard binding test produced no reset and neither snapshot handler appeared in the two session logs. Both bindings persisted in the keyboard configuration. No runtime save or restore success is claimed.
 
 ## Build identity
 
@@ -29,8 +29,18 @@ For a first experiment, bind these actions through `KeyboardInputConfiguration.k
 
 The embedded `PhysicsSnapshot.proto` defines `ACCCarSnap` with chassis and suspension rigid bodies, drivetrain, fuel, tyre state, damage and brake state. `ACCRigidBodySnap` includes a matrix, velocity and angular velocity. `ACCDrivetrainSnap` includes engine and shaft speeds and current gear. The serializer and deserializer contain substantial implementations, not just empty command stubs.
 
+## Failed input test and diagnostic
+
+The tested game identifies itself as `0.9.1+release.6`. Searching direct call, jump, RIP relative LEA and absolute pointer references found only the thunk at `0x629d6` for the input handler `0x132cff0`, and no references to that thunk. This supports an unregistered developer input route, but is not a complete proof of unreachable code.
+
+The realtime controller vtable is at `0x3231a70`. Slots 9 and 10 resolve to `0x14d6dc0` and `0x14d6600`. Comparison with the base interface's fallback messages identifies them as saveCarSnapshot and restoreCarSnapshot. Both take a car GUID and a byte vector and return a boolean. Their bodies access physics cars directly without a visible thread handoff, so do not call them from an input polling thread.
+
+`src/engine/active_reset_probe.cpp` hooks the call at `0x14d6a38` to `stepOnce`, preserving the call's controller pointer, float timestep and double time arguments. It runs the original step before logging. It does not call snapshot routines. The hook checks the PE timestamp, image size and three code hashes before patching. The callback checks the controller vtable before reading the car vector and only reports key presses while the game has focus.
+
+Enable the diagnostic with `[probe] enabled=1` in `acevo_active_reset.ini` next to the game. The distributed setting defaults to zero. Log entries have prefix `[active-reset-probe]`, report installation, the first physics callback and I/U key presses with physics car count. The live solo practice test on 2026-11-13 logged installation, the physics callback at a 0.003 second timestep and three I/U pairs on the same thread with exactly one physics car. This verifies the hook and input path, not state restoration. The C++ build completed with zero errors and an existing conversion warning in `src/engine/flags.cpp`.
+
 ## Verification still needed
 
-Use solo practice without AI because the save handler appears to capture every physics car. Save while moving, drive further and restore repeatedly. Confirm position, heading, speed and gear, then check logs for both handler names. Check whether the input actions are accepted in the release UI. The existence of command code does not prove that input dispatch reaches it.
+Integrate the per-car methods on the verified thread, with a verified session guard and checkpoint invalidation. Save while moving, drive further and restore repeatedly. Confirm position, heading, speed and gear.
 
-Before making a one button feature, verify session changes invalidate the checkpoint, and determine effects on timing, replay, force feedback and collisions. Do not expose these actions in multiplayer. No executable or DLL was modified during this investigation.
+Before making a one button feature, verify session changes invalidate the checkpoint, and determine effects on timing, replay, force feedback and collisions. Do not expose these actions in multiplayer. The diagnostic patches one call in memory through the proxy, and does not modify the executable on disk.

@@ -160,6 +160,7 @@ void ClearCheckpoint()
     SetActiveResetTimer(0, 0);
     SetActiveResetBest(0, 0);
     SetActiveResetDelta(0, 0);
+    SetActiveResetFinished(0, false);
 }
 
 void StepProbe(BYTE* controller, float delta, double time)
@@ -324,6 +325,7 @@ void StepProbe(BYTE* controller, float delta, double time)
         }
         if (checkpoint.first) {
             const double elapsed = time - timerStart;
+            SetActiveResetFinished(epoch, finished);
             SetActiveResetTimer(epoch, finished ? finishedTime : elapsed > 0 && elapsed < 4294967295.0 ? static_cast<uint32_t>(elapsed) : 0);
         }
         return;

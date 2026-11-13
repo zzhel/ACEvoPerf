@@ -8,40 +8,40 @@ std::atomic<uint64_t> pendingNotice{0};
 std::atomic<uint64_t> timerState{0};
 std::atomic<uint64_t> bestState{0};
 std::atomic<uint64_t> deltaState{0};
+std::atomic<uint64_t> finishedState{0};
 void* mainView = nullptr;
 
 const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
-    window.__acevoActiveResetTimer = function (elapsed, best, delta) {
-        var timer = document.querySelector('.acevo-reset-timer');
-        var laps = document.querySelector('ks-hud ks-laptime .timing .laps');
-        if (!timer && laps) {
-            timer = document.createElement('div');
-            timer.className = 'time acevo-reset-timer';
-            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span><span class="label acevo-reset-best"></span>' +
-                '<span class="label acevo-reset-delta"></span><div class="acevo-delta-track" style="position:relative;width:8rem;height:.4rem;background:rgba(255,255,255,.2)">' +
-                '<div style="position:absolute;left:50%;height:100%;width:1px;background:white"></div>' +
-                '<div class="acevo-delta-bar" style="position:absolute;height:100%"></div></div>';
-            laps.appendChild(timer);
+    window.__acevoActiveResetTimer = function (elapsed, best, delta, finished) {
+        var timer = document.querySelector('acevo-snapshot');
+        var hud = document.querySelector('ks-hud#mainHUD');
+        if (!timer && hud && customElements.get('acevo-snapshot') && elapsed >= 0) {
+            timer = document.createElement('acevo-snapshot');
+            timer.id = 'acevo-reset';
+            timer.style.cssText = 'position:absolute;left:2rem;top:12rem;width:10rem;color:white;filter:drop-shadow(.1rem .05rem .1rem #000);';
+            var body = hud.querySelector('.component-body');
+            (body || hud).appendChild(timer);
         }
         if (!timer) return;
         var season = window.SeasonInfo;
         var hidden = elapsed < 0 || document.body.classList.contains('multiplayer') ||
             (season && season.mode === 'ClientCommandsMode_MULTIPLAYER');
-        timer.style.display = hidden ? 'none' : 'flex';
+        timer.style.display = hidden ? 'none' : 'block';
         if (hidden) return;
+        if (!timer.querySelector('.acevo-reset-value')) return;
         function format(value) {
             return String(Math.floor(value / 60000)).padStart(2, '0') + ':' +
                 String(Math.floor(value / 1000) % 60).padStart(2, '0') + '.' + String(value % 1000).padStart(3, '0');
         }
-        timer.querySelector('.value').textContent = format(elapsed);
+        timer.querySelector('.acevo-reset-value').textContent = format(elapsed);
         timer.querySelector('.acevo-reset-best').textContent = best >= 0 ? 'BEST ' + format(best) : '';
         var label = timer.querySelector('.acevo-reset-delta');
         var track = timer.querySelector('.acevo-delta-track');
         var bar = timer.querySelector('.acevo-delta-bar');
-        track.style.display = delta === null ? 'none' : 'block';
+        track.style.display = delta === null || finished ? 'none' : 'block';
         label.textContent = delta === null ? '' : (delta > 0 ? '+' : delta < 0 ? '-' : '') + (Math.abs(delta) / 1000).toFixed(3);
         label.style.color = delta === null || delta === 0 ? 'white' : delta < 0 ? '#44EA78' : '#FF1418';
         var width = delta === null ? 0 : Math.min(Math.abs(delta) / 1000, 1) * 50;
@@ -109,6 +109,20 @@ const char pageScript[] = R"js(
     }
     function patch(name, elementClass) {
         var proto = elementClass.prototype;
+        if (name === 'ks-laptime' && !customElements.get('acevo-snapshot')) {
+            var HudElement = Object.getPrototypeOf(elementClass);
+            class SnapshotHud extends HudElement {
+                constructor() {
+                    super();
+                    this.template = '<div class="component-body" style="display:flex;flex-direction:column;pointer-events:none;font-family:rajdhani-mono,sans-serif;font-size:1rem">' +
+                        '<span>SNAPSHOT</span><span class="acevo-reset-value" style="font-size:1.4rem;font-weight:600"></span><span class="acevo-reset-best"></span>' +
+                        '<span class="acevo-reset-delta"></span><div class="acevo-delta-track" style="position:relative;width:8rem;height:.4rem;background:rgba(255,255,255,.2)">' +
+                        '<div style="position:absolute;left:50%;height:100%;width:1px;background:white"></div>' +
+                        '<div class="acevo-delta-bar" style="position:absolute;height:100%"></div></div></div>';
+                }
+            }
+            customElements.define('acevo-snapshot', SnapshotHud);
+        }
         if (name === 'ks-page-settings-controls' && !proto.__acevoResetBindings) {
             proto.__acevoResetBindings = true;
             var refresh = proto.onDevicesChanged;
@@ -130,6 +144,8 @@ const char pageScript[] = R"js(
     };
     var controls = customElements.get('ks-page-settings-controls');
     if (controls) patch('ks-page-settings-controls', controls);
+    var laptime = customElements.get('ks-laptime');
+    if (laptime) patch('ks-laptime', laptime);
 })();
 )js";
 
@@ -157,11 +173,13 @@ void OnFrameEnd(bool after)
         const int64_t bestMs = (epoch & 1) && (best >> 32) == epoch
             ? static_cast<int64_t>(static_cast<uint32_t>(best)) : -1;
         const uint64_t delta = deltaState.load(std::memory_order_acquire);
+        const uint64_t finished = finishedState.load(std::memory_order_acquire);
         char deltaText[32] = "null";
         if ((epoch & 1) && (delta >> 32) == epoch)
             sprintf_s(deltaText, "%d", static_cast<int32_t>(static_cast<uint32_t>(delta)));
         char script[192];
-        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld,%lld,%s);", elapsed, bestMs, deltaText);
+        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld,%lld,%s,%s);", elapsed, bestMs, deltaText,
+            (finished >> 1) == epoch && (finished & 1) ? "true" : "false");
         using ScriptFn = void (*)(void*, const char*);
         reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, script);
     }
@@ -207,6 +225,11 @@ void SetActiveResetBest(uint64_t sessionEpoch, uint32_t elapsedMs)
 void SetActiveResetDelta(uint64_t sessionEpoch, int32_t deltaMs)
 {
     deltaState.store((sessionEpoch << 32) | static_cast<uint32_t>(deltaMs), std::memory_order_release);
+}
+
+void SetActiveResetFinished(uint64_t sessionEpoch, bool finished)
+{
+    finishedState.store((sessionEpoch << 1) | (finished ? 1 : 0), std::memory_order_release);
 }
 
 void InstallActiveResetUi()

@@ -14,6 +14,8 @@ Every version of ACEvoPerf and what changed in it, newest first.
 ### Fixed
 
 - Snapshot times and the delta bar now have their own display.
+- Move the snapshot display independently of the lap timer.
+- The snapshot delta bar hides after you finish the segment.
 
 ## 0.4.0 for Linux (2026-10-08)
 

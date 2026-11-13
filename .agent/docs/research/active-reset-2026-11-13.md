@@ -2,7 +2,7 @@
 name: active-reset-2026-11-13
 kind: doc
 description: per-car save and restore, configurable controls, notifications and local session guard
-updated: 2026-11-13
+updated: 2026-11-14
 links: [moddability, TODO-029-active-reset]
 ---
 
@@ -66,6 +66,12 @@ Physics checks the guard before polling the bindings. A new session generation i
 The owner replaced the persistent snapshot icon with transient in-game notifications. After physics completes a save or restore, the UI posts the outcome to EVO's existing `UINotification` event and `UIInternalNotification_Simple` renderer. A restore without a checkpoint and failed operations also report their outcome. The pending notice carries its session generation so a queued notice is discarded if the session changes before the UI receives it. The UI also checks the game's multiplayer mode. The build no longer embeds the icon assets.
 
 This guard only controls active reset. It does not remove the proxy DLL or other in-memory hooks. Use the original game files for a multiplayer launch.
+
+## Gate marker experiment
+
+The game schema defines `AddCustomPoiCommand` with `ZoneData` points, and the executable's handler type identifies `FreeRoamRemote`. The free-roam HUD renders selected points using game-projected screen coordinates. Circuit practice does not expose that HUD or a verified arbitrary-point projection interface.
+
+On 2026-11-13 a local circuit probe sent `AddCustomPoiCommand` through `OnUICommand` when setting a gate. Its first payload had an invalid nested type, and the game logged that the circuit game mode had no message handler for the command. A second payload changed the type names and crashed the game in argument conversion at executable RVA `0x2b8ce5c`; it did not establish that the command works. The probe was removed and the DLL rebuilt. Do not repeat this command in circuit mode. The user confirmed the revised black-screen restore fade works.
 
 ## Remaining verification
 

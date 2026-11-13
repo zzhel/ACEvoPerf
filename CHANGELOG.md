@@ -6,7 +6,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 
 ### Added
 
-- Optional diagnostics for testing active reset controls. Saving and restoring are not enabled yet.
+- Optional active reset experiment for solo practice, disabled by default.
 
 ## 0.3.2 (2026-09-18)
 

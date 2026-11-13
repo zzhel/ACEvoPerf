@@ -12,7 +12,7 @@ links: [agent-index, spec-todos]
 
 foundation
 
-- [TODO-029-active-reset](TODO-029-active-reset.md), native key test failed, physics callback and I/U presses verified in solo practice, state restoration remains
+- [TODO-029-active-reset](TODO-029-active-reset.md), per-car save and restore verified in solo practice, session guard and one button interaction remain
 
 release
 

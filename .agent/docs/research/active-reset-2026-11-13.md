@@ -1,7 +1,7 @@
 ---
 name: active-reset-2026-11-13
 kind: doc
-description: per-car save and restore verified in solo practice, one button control and multiplayer lockout remain
+description: per-car save and restore, configurable controls, snapshot indicator and local session guard
 updated: 2026-11-13
 links: [moddability, TODO-029-active-reset]
 ---
@@ -45,7 +45,7 @@ The additional opt-in `[probe] solo_snapshot_experiment=1` enables I to capture 
 
 Snapshots remain in a game-allocated byte vector. The native vector move assignment at `0x1117800` releases and replaces that vector, avoiding a free through the DLL's separate C runtime. The checkpoint is invalidated on a changed controller, world, car pointer or GUID, or if there is no longer exactly one physics car. Only one checkpoint is retained. The current allocation is reclaimed at process exit if no further physics step clears it.
 
-Exactly one car is a prototype constraint, not proof of a single-player session. Automatic multiplayer exclusion is not implemented, so this build is only for an explicitly requested solo test. The user has been told this limitation. A release needs a verified session guard and the final one button interaction.
+Exactly one car remains a constraint for taking a snapshot. The separate session guard below determines whether reset is available.
 
 ## Controls and HUD experiment
 
@@ -57,8 +57,16 @@ The state is published atomically from successful snapshot saves and checkpoint 
 
 In solo practice the input build loaded the saved N/M bindings, recorded two 1560-byte saves and two successful restore returns. It then loaded XInput buttons 13 and 7 after Apply in the same run, and logged more saves and successful restores. The user confirmed controller inputs work. A standalone check covered invalid and cleared settings, press edges and controller button mapping. DirectInput wheel hardware still requires live testing.
 
+## Local session guard
+
+The guard starts closed. The session start routine at `0x78b1b0` accepts a tagged local season or a server connection. It enables reset only after a local start creates a new local server in the platform client at `+0x4538`. Remote variants and rejected starts leave reset disabled. The multiplayer join and connect callbacks close the guard before forwarding to the game. Exit also closes it. The version and instruction checks disable reset if the expected hooks cannot be installed.
+
+Physics checks the guard before polling the bindings. A new session generation invalidates the previous snapshot even if the same physics objects are reused. The HUD stays hidden while the guard is closed and also honours the game's multiplayer mode. Its latest design uses one larger dotted R8-style outline. A local test covered remote and failed starts, a successful local start, joining during startup, connecting and exiting. A UI test covered visibility and the grey and green images. Multiplayer server testing has not been performed.
+
+This guard only controls active reset. It does not remove the proxy DLL or other in-memory hooks. Use the original game files for a multiplayer launch.
+
 ## Remaining verification
 
-Add a verified session guard and the final one button interaction. Validate car and session changes, other car types and repeated checkpoint replacement. Position, speed and gear are confirmed by the user in the initial solo practice test.
+Add the final one button interaction. Validate more cars and repeated checkpoint replacement. Position, speed and gear are confirmed by the user in the initial solo practice test.
 
 Before making a one button feature, verify session changes invalidate the checkpoint, and determine effects on timing, replay, force feedback and collisions. Do not expose these actions in multiplayer. The diagnostic patches one call in memory through the proxy, and does not modify the executable on disk.

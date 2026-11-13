@@ -1,9 +1,10 @@
 #include "acevo/ui/active_reset_ui.h"
+#include "acevo/engine/active_reset_session.h"
 #include "acevo/ui/cohtml_hooks.h"
 #include "acevo/core/log.h"
 
 namespace {
-std::atomic<bool> snapshotActive{false};
+std::atomic<uint64_t> snapshotEpoch{0};
 void* mainView = nullptr;
 
 const char pageScript[] = R"js(
@@ -11,22 +12,30 @@ const char pageScript[] = R"js(
     'use strict';
     if (window.__acevoActiveReset) return;
     var active = false;
+    var available = false;
     var indicator;
     // Transparent PNGs with the same R8-style outline mask, one for each state.
-    var inactivePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAAAmBAMAAADZ+w/jAAAAMFBMVEXT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19smuEYJAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAAAzFJREFUeNrtVUtsTFEY/s6dzkzbGXpJiYrH9U4XlalE6IZ6xyNRlXgkwkVIbLRdSEMkLSKSClM2xKsNCySojQ2hukFETOOVIM2gYtNyPDrT19z7WUw77tzOvRI74V/dc/L9539933+Bf8d2AOqf+GVZD+LsizNnAneaR7t5TF2ySAN4++w7Z4yfXXlsbWBZvnNScyWT1rnVCVLwIJuxAGtrWBxtd46VMkN3KG1nScGN5/HqOv+clxP7nTrxCLx99x2grCtXzrW2ZgSFqQ18KTLmKc2IqaFR9avG7kwQnz72Veowp7QiY07Z5IHUYQzZkgHT0Jt2jMhQBlATrc1bRcOet+dJiEybVI2hLrSBRs7eR8P6vGhgT5rTisphbLVl5K0KmCHfQUus85L2Wvzk29NrU28pMj6c7326LYH5sj5spEDTm0kyYePXKpLs2DYYy+z1fhk6pHEsjcjQUX0gGPn58Sk7B8VxkjRvAQBGaU3tGDG0sWI7Nvf52QUACNI4lIntytK6eyQvAhDRdo+TIJRQNmPJmVJ34rrYGDUNDfCZfS4KFffqAcDLHhfQqDCfAR4Zc9O6UA4DCPKmGyiHPQBKylz3zHjqQNC5smTlBhQ8dA2GyQj9fqs1KhqUp5WumBxDA4J0T3sCyxCga48waxKAIBtdQUWsFbkxFI8dncT5Lmwq3FCzvLvldPVXAEDJjCvdVfVAVkfuSjz5CsCzwOKfuA8Ai6FcVddAibA8mdT+yi0MRXo9/BHgzXwVgJDxPH4DIKIkPwIQzbSYoQEoIsleAIH+JJWy+KNB6jR8ZjyPH2VLUjyB5ODHDYC9TDMdQJikqQOAJiIfAHjZNTOhhuNK9Jmfu8w4AK25XVSrACCut0kDQC6NtpRF2Qggara1XRqk5pTLEOqxWmUNskLIV7HYyw9ATn++9qshq3kCqGBlSk/CzzhQMKDGwfHpuz+lzWFZ8TW9gvWWm4BpXrluGhZdiqh8UyellYfzWStN1baev6+mlWJKhCSfWzHzSDKhWb06tUjC/gP77n+ddjNGkn1a2oZuIs0DaSAVhSdtaj03hMzT9u6xycWz/kg5/tvfaz8Bmo+UdiaINMwAAAAASUVORK5CYII=';
-    var activePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAAAmBAMAAADZ+w/jAAAAMFBMVEWO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+Ks6mUMGAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAAAzFJREFUeNrtVUtsTFEY/s6dzkzbGXpJiYrH9U4XlalE6IZ6xyNRlXgkwkVIbLRdSEMkLSKSClM2xKsNCySojQ2hukFETOOVIM2gYtNyPDrT19z7WUw77tzOvRI74V/dc/L9539933+Bf8d2AOqf+GVZD+LsizNnAneaR7t5TF2ySAN4++w7Z4yfXXlsbWBZvnNScyWT1rnVCVLwIJuxAGtrWBxtd46VMkN3KG1nScGN5/HqOv+clxP7nTrxCLx99x2grCtXzrW2ZgSFqQ18KTLmKc2IqaFR9avG7kwQnz72Veowp7QiY07Z5IHUYQzZkgHT0Jt2jMhQBlATrc1bRcOet+dJiEybVI2hLrSBRs7eR8P6vGhgT5rTisphbLVl5K0KmCHfQUus85L2Wvzk29NrU28pMj6c7326LYH5sj5spEDTm0kyYePXKpLs2DYYy+z1fhk6pHEsjcjQUX0gGPn58Sk7B8VxkjRvAQBGaU3tGDG0sWI7Nvf52QUACNI4lIntytK6eyQvAhDRdo+TIJRQNmPJmVJ34rrYGDUNDfCZfS4KFffqAcDLHhfQqDCfAR4Zc9O6UA4DCPKmGyiHPQBKylz3zHjqQNC5smTlBhQ8dA2GyQj9fqs1KhqUp5WumBxDA4J0T3sCyxCga48waxKAIBtdQUWsFbkxFI8dncT5Lmwq3FCzvLvldPVXAEDJjCvdVfVAVkfuSjz5CsCzwOKfuA8Ai6FcVddAibA8mdT+yi0MRXo9/BHgzXwVgJDxPH4DIKIkPwIQzbSYoQEoIsleAIH+JJWy+KNB6jR8ZjyPH2VLUjyB5ODHDYC9TDMdQJikqQOAJiIfAHjZNTOhhuNK9Jmfu8w4AK25XVSrACCut0kDQC6NtpRF2Qggara1XRqk5pTLEOqxWmUNskLIV7HYyw9ATn++9qshq3kCqGBlSk/CzzhQMKDGwfHpuz+lzWFZ8TW9gvWWm4BpXrluGhZdiqh8UyellYfzWStN1baev6+mlWJKhCSfWzHzSDKhWb06tUjC/gP77n+ddjNGkn1a2oZuIs0DaSAVhSdtaj03hMzT9u6xycWz/kg5/tvfaz8Bmo+UdiaINMwAAAAASUVORK5CYII=';
+    var inactivePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAABBBAMAAADMCjABAAAAMFBMVEXT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19vT19smuEYJAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAABChJREFUeNrtmM1rXGUUxn93MpM0bYVrsVQaA5EutJt0FEHQRcaPSrHUBEVX1k6hC12UpmJdFDVNly7SUMGFQhPoH9BqC1IoJC4U/KATQaogdJoqWGlhak0Tk0nuz8VkMpNJZjKT0Z3v6s57X5573vPxnOcM/L+aXnt/SQFbupqAaPn0JLTqDGzL/tEE0imjNJ0ahYzoxLpxYuokvWo6ltPptY5XfdMGbCUEiIeQgEfeadw9n6TYqM7QrVFXXJ1lQ87PGwUaMR/G1bts0FnI6F16dLZRg9Q0YzpM8H40CPuMTjCmUYOx26hOsO3a1yEEjwHBWychq6YaA9qsXoeg8r5GYWNArerwit1dOgMvNGRUVld6I5GJBtlrPlknyFOXung0d3aVN/FnIFt3jif0V9hS49L36gPq0YXqLm23WjItK5FtxyANsb6qQAvA/JpALT9/OEoIVLdo7jp8R+zZ2sXbrXMM1E67p80ngyFPV3XxlashI2ryIZ2r5cPdKTZoHoLjH63y+ogOk1HTQcbRNeLRrSbZt1rSBlm9wTk1ReLQWoHtVfvJ6F8rU02dpkfz9WRIt5qKq3MQhKsAxfWzeoDadZ6EOk9s6FZq5dXY+XFd1R075wWCnE7TuYzMd4QFZ9dPfIeAAZ1goLwOtnu1EP4GuebKzS4yZVkXjGm6RjepfsMQMmqRVtrUG+ttfgfKAr25fmZYuTbpb2XP6wfixS/Ccq6abEavxN4Ni90hSjUDNORPi96+dqEZnIRLneL+ppTY5kLvigG5poBiQBJiEHu8KaAFYByAM9GJZoBaip28Xf9uyqTXvVjMcpsKP88tiQx/Xz9K8ObBklrRFOyuFAe7k0DsZYCtKSB4tYJpgleAwy70LfVoPU9HZSvucBaCM56Gtmw+BW/44/ITHywS5Q+lWnOyIPSKnzp+lGBMh2nXOejVSeIaJSsExQJtlsh2v3q+VZ0qHnnJKNWmTi22sIzO0Kl+yZNvLwF1qul2S0GPqamCGF5cGR0vbBxQ00FO8+xS/9xuKel2qcOJogExiPZzc1zAYhkm4QkAuQPcKT3mjhEsU+138hNweennayEtZazUqt4rbNynCyGndIp2dTBXRq0b1S525irmnQMlVwY5nSxsJHQaOnUUxpxrUaPFU2Es5yywo0Jtxi+fpWVxb0D7iV8+C+z8JgnBexeBtu/7g+ySVjl8u+/Bb6tURGthKgtJXPmqSh4fKSqHtlrz0hE9T3D4dl+lVC8bmXLzfew5WlAk1XRykNUpNtUmgwdSdBilGVFPVNGQsS5I8Dy01hhdbo9ziGCwNmfmdJpzan/Ncs/pDL2V5FNmUTQKt0opWBUohBYuwex4tSMdLvTRs9YMFGT0HgxFNezecxDa15yDe3UcgofrGWpqd8RMM38CLOsb/xLOf7z+AXsbcdFXsbSXAAAAAElFTkSuQmCC';
+    var activePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAABBBAMAAADMCjABAAAAMFBMVEWO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+KuO+Ks6mUMGAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAABChJREFUeNrtmM1rXGUUxn93MpM0bYVrsVQaA5EutJt0FEHQRcaPSrHUBEVX1k6hC12UpmJdFDVNly7SUMGFQhPoH9BqC1IoJC4U/KATQaogdJoqWGlhak0Tk0nuz8VkMpNJZjKT0Z3v6s57X5573vPxnOcM/L+aXnt/SQFbupqAaPn0JLTqDGzL/tEE0imjNJ0ahYzoxLpxYuokvWo6ltPptY5XfdMGbCUEiIeQgEfeadw9n6TYqM7QrVFXXJ1lQ87PGwUaMR/G1bts0FnI6F16dLZRg9Q0YzpM8H40CPuMTjCmUYOx26hOsO3a1yEEjwHBWychq6YaA9qsXoeg8r5GYWNArerwit1dOgMvNGRUVld6I5GJBtlrPlknyFOXung0d3aVN/FnIFt3jif0V9hS49L36gPq0YXqLm23WjItK5FtxyANsb6qQAvA/JpALT9/OEoIVLdo7jp8R+zZ2sXbrXMM1E67p80ngyFPV3XxlashI2ryIZ2r5cPdKTZoHoLjH63y+ogOk1HTQcbRNeLRrSbZt1rSBlm9wTk1ReLQWoHtVfvJ6F8rU02dpkfz9WRIt5qKq3MQhKsAxfWzeoDadZ6EOk9s6FZq5dXY+XFd1R075wWCnE7TuYzMd4QFZ9dPfIeAAZ1goLwOtnu1EP4GuebKzS4yZVkXjGm6RjepfsMQMmqRVtrUG+ttfgfKAr25fmZYuTbpb2XP6wfixS/Ccq6abEavxN4Ni90hSjUDNORPi96+dqEZnIRLneL+ppTY5kLvigG5poBiQBJiEHu8KaAFYByAM9GJZoBaip28Xf9uyqTXvVjMcpsKP88tiQx/Xz9K8ObBklrRFOyuFAe7k0DsZYCtKSB4tYJpgleAwy70LfVoPU9HZSvucBaCM56Gtmw+BW/44/ITHywS5Q+lWnOyIPSKnzp+lGBMh2nXOejVSeIaJSsExQJtlsh2v3q+VZ0qHnnJKNWmTi22sIzO0Kl+yZNvLwF1qul2S0GPqamCGF5cGR0vbBxQ00FO8+xS/9xuKel2qcOJogExiPZzc1zAYhkm4QkAuQPcKT3mjhEsU+138hNweennayEtZazUqt4rbNynCyGndIp2dTBXRq0b1S525irmnQMlVwY5nSxsJHQaOnUUxpxrUaPFU2Es5yywo0Jtxi+fpWVxb0D7iV8+C+z8JgnBexeBtu/7g+ySVjl8u+/Bb6tURGthKgtJXPmqSh4fKSqHtlrz0hE9T3D4dl+lVC8bmXLzfew5WlAk1XRykNUpNtUmgwdSdBilGVFPVNGQsS5I8Dy01hhdbo9ziGCwNmfmdJpzan/Ncs/pDL2V5FNmUTQKt0opWBUohBYuwex4tSMdLvTRs9YMFGT0HgxFNezecxDa15yDe3UcgofrGWpqd8RMM38CLOsb/xLOf7z+AXsbcdFXsbSXAAAAAElFTkSuQmCC';
     function paint(icon) {
+        var season = window.SeasonInfo;
+        var multiplayer = document.body.classList.contains('multiplayer') ||
+            (season && season.mode === 'ClientCommandsMode_MULTIPLAYER');
+        icon.style.display = available && !multiplayer ? 'block' : 'none';
         var label = active ? 'Snapshot saved' : 'No snapshot';
-        icon.setAttribute('src', active ? activePng : inactivePng);
+        var source = active ? activePng : inactivePng;
+        if (icon.getAttribute('src') === source) return;
+        icon.setAttribute('src', source);
         icon.setAttribute('alt', label);
         icon.setAttribute('title', label);
     }
-    window.__acevoActiveReset = function (value) {
-        if (active === value) return;
+    window.__acevoActiveReset = function (allowed, value) {
+        var changed = active !== value;
+        available = allowed;
         active = value;
         if (!indicator) return;
         paint(indicator);
-        console.log('[ACEvoPerf] snapshot indicator ' + (active ? 'active' : 'inactive'));
+        if (changed) console.log('[ACEvoPerf] snapshot indicator ' + (active ? 'active' : 'inactive'));
     };
     var definitions = [
         {number: 551, action: 'InputAction_AIDev_SaveSnapshot', name: 'AIDev SaveSnapshot', label: 'Active reset: Save snapshot'},
@@ -95,7 +104,7 @@ const char pageScript[] = R"js(
                 if (!container) return;
                 var icon = document.createElement('img');
                 icon.className = 'acevo-snapshot';
-                icon.style.cssText = 'position:absolute;left:2.3rem;bottom:0.72rem;width:3.25rem;height:0.86rem;pointer-events:none';
+                icon.style.cssText = 'display:none;position:absolute;left:2.3rem;bottom:0.41rem;width:3.25rem;height:1.47rem;pointer-events:none';
                 icon.addEventListener('error', function () {
                     console.error('[ACEvoPerf] snapshot indicator PNG failed to load');
                 });
@@ -135,16 +144,21 @@ void OnFrameEnd(bool after)
     if (now - lastUpdate < 100) return;
     lastUpdate = now;
     using ScriptFn = void (*)(void*, const char*);
-    const char* script = snapshotActive.load(std::memory_order_acquire)
-        ? "window.__acevoActiveReset && window.__acevoActiveReset(true);"
-        : "window.__acevoActiveReset && window.__acevoActiveReset(false);";
+    const uint64_t epoch = ActiveResetSessionEpoch();
+    const char* script;
+    if (!(epoch & 1))
+        script = "window.__acevoActiveReset && window.__acevoActiveReset(false, false);";
+    else if (snapshotEpoch.load(std::memory_order_acquire) == epoch)
+        script = "window.__acevoActiveReset && window.__acevoActiveReset(true, true);";
+    else
+        script = "window.__acevoActiveReset && window.__acevoActiveReset(true, false);";
     reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[60])(mainView, script);
 }
 }
 
-void SetActiveResetSnapshot(bool active)
+void SetActiveResetSnapshot(uint64_t sessionEpoch)
 {
-    snapshotActive.store(active, std::memory_order_release);
+    snapshotEpoch.store(sessionEpoch, std::memory_order_release);
 }
 
 void InstallActiveResetUi()

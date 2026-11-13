@@ -12,7 +12,7 @@ links: [agent-index, spec-todos]
 
 foundation
 
-- [TODO-029-active-reset](TODO-029-active-reset.md), configurable controls and HUD are in place, session guard and one button interaction remain
+- [TODO-029-active-reset](TODO-029-active-reset.md), configurable controls, HUD and local session guard are in place, one button interaction remains
 
 release
 

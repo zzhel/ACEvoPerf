@@ -1,5 +1,6 @@
 #include "acevo/engine/active_reset_probe.h"
 #include "acevo/engine/active_reset_input.h"
+#include "acevo/engine/active_reset_session.h"
 #include "acevo/core/code_patch.h"
 #include "acevo/core/config.h"
 #include "acevo/core/log.h"
@@ -10,6 +11,7 @@ using StepFn = void (*)(BYTE*, float, double);
 StepFn originalStep = nullptr;
 BYTE* expectedVtable = nullptr;
 BYTE* lastController = nullptr;
+uint64_t lastSessionEpoch = 0;
 bool reportedMismatch = false;
 struct Blob { BYTE* first; BYTE* last; BYTE* capacity; };
 struct CarId { uint64_t low; uint64_t high; };
@@ -31,7 +33,7 @@ void ClearCheckpoint()
     checkpointCar = nullptr;
     checkpointWorld = nullptr;
     checkpointId = {};
-    SetActiveResetSnapshot(false);
+    SetActiveResetSnapshot(0);
 }
 
 void StepProbe(BYTE* controller, float delta, double time)
@@ -42,6 +44,15 @@ void StepProbe(BYTE* controller, float delta, double time)
             Log("[active-reset-probe] unexpected controller vtable; diagnostics skipped");
             reportedMismatch = true;
         }
+        return;
+    }
+    const ActiveResetSessionRead session;
+    const uint64_t epoch = session.Epoch();
+    const bool sessionChanged = epoch != lastSessionEpoch;
+    lastSessionEpoch = epoch;
+    if (sessionChanged && checkpoint.first) ClearCheckpoint();
+    if (!(epoch & 1)) {
+        PollActiveResetInput(nullptr, true);
         return;
     }
     const bool controllerChanged = controller != lastController;
@@ -55,7 +66,7 @@ void StepProbe(BYTE* controller, float delta, double time)
     const HWND foreground = GetForegroundWindow();
     GetWindowThreadProcessId(foreground, &foregroundPid);
     const bool focused = foregroundPid == GetCurrentProcessId();
-    const unsigned action = PollActiveResetInput(focused ? foreground : nullptr, controllerChanged);
+    const unsigned action = PollActiveResetInput(focused ? foreground : nullptr, controllerChanged || sessionChanged);
     const bool saveDown = action == 551;
     const bool loadDown = action == 552;
     if (snapshotExperiment) {
@@ -79,7 +90,7 @@ void StepProbe(BYTE* controller, float delta, double time)
                     checkpointCar = car;
                     checkpointWorld = world;
                     checkpointId = id;
-                    SetActiveResetSnapshot(true);
+                    SetActiveResetSnapshot(epoch);
                     Log("[active-reset-probe] saved checkpoint, bytes=%zu", size_t(checkpoint.last - checkpoint.first));
                 } else {
                     ClearCheckpoint();
@@ -156,6 +167,11 @@ void InstallActiveResetProbe()
     moveBlob = reinterpret_cast<MoveBlobFn>(exe + 0x1117800);
     snapshotExperiment = GetPrivateProfileIntW(L"probe", L"solo_snapshot_experiment", 0, ini.c_str()) != 0;
     expectedVtable = exe + 0x3231a70;
+    if (!InstallActiveResetSessionGuard(exe)) {
+        VirtualFree(relay, 0, MEM_RELEASE);
+        Log("[active-reset-probe] session guard unavailable; reset disabled");
+        return;
+    }
     if (!WriteCode(call, patch, sizeof patch)) {
         VirtualFree(relay, 0, MEM_RELEASE);
         Log("[active-reset-probe] call patch failed");
@@ -164,5 +180,5 @@ void InstallActiveResetProbe()
     InstallActiveResetUi();
     Log("[active-reset-probe] installed for EVO 0.9.1; snapshot_experiment=%d", snapshotExperiment ? 1 : 0);
     if (snapshotExperiment)
-        Log("[active-reset-probe] solo practice test only: bind Save/Restore snapshot in Controls; multiplayer exclusion is not implemented");
+        Log("[active-reset-probe] local sessions only: bind Save/Restore snapshot in Controls");
 }

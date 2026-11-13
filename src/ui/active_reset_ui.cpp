@@ -15,13 +15,13 @@ const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
-    window.__acevoActiveResetTimer = function (elapsed, best, delta, finished) {
+    window.__acevoActiveResetTimer = function (elapsed, best, delta, finished, improved) {
         var timer = document.querySelector('acevo-snapshot');
         var hud = document.querySelector('ks-hud#mainHUD');
         if (!timer && hud && customElements.get('acevo-snapshot') && elapsed >= 0) {
             timer = document.createElement('acevo-snapshot');
             timer.id = 'acevo-reset';
-            timer.style.cssText = 'position:absolute;left:2rem;top:12rem;width:10rem;color:white;filter:drop-shadow(.1rem .05rem .1rem #000);';
+            timer.style.cssText = 'position:absolute;left:2rem;top:12rem;width:16rem;color:white;filter:drop-shadow(.1rem .05rem .1rem #000);';
             var body = hud.querySelector('.component-body');
             (body || hud).appendChild(timer);
         }
@@ -30,19 +30,46 @@ const char pageScript[] = R"js(
         var hidden = elapsed < 0 || document.body.classList.contains('multiplayer') ||
             (season && season.mode === 'ClientCommandsMode_MULTIPLAYER');
         timer.style.display = hidden ? 'none' : 'block';
-        if (hidden) return;
+        if (hidden) {
+            clearInterval(timer.__acevoFlash);
+            timer.__acevoFlash = null;
+            timer.__acevoWasFinished = false;
+            var hiddenBest = timer.querySelector('.acevo-reset-best');
+            if (hiddenBest) hiddenBest.style.opacity = '';
+            return;
+        }
         if (!timer.querySelector('.acevo-reset-value')) return;
         function format(value) {
             return String(Math.floor(value / 60000)).padStart(2, '0') + ':' +
                 String(Math.floor(value / 1000) % 60).padStart(2, '0') + '.' + String(value % 1000).padStart(3, '0');
         }
         timer.querySelector('.acevo-reset-value').textContent = format(elapsed);
-        timer.querySelector('.acevo-reset-best').textContent = best >= 0 ? 'BEST ' + format(best) : '';
+        var bestLabel = timer.querySelector('.acevo-reset-best');
+        bestLabel.textContent = best >= 0 ? 'BEST ' + format(best) : '';
+        if (finished && !timer.__acevoWasFinished && improved && best >= 0) {
+            clearInterval(timer.__acevoFlash);
+            var flashes = 0;
+            bestLabel.style.opacity = '0';
+            timer.__acevoFlash = setInterval(function () {
+                flashes++;
+                bestLabel.style.opacity = flashes % 2 ? '1' : '0';
+                if (flashes === 6) {
+                    clearInterval(timer.__acevoFlash);
+                    timer.__acevoFlash = null;
+                    bestLabel.style.opacity = '';
+                }
+            }, 500);
+        } else if (!finished && timer.__acevoWasFinished) {
+            clearInterval(timer.__acevoFlash);
+            timer.__acevoFlash = null;
+            bestLabel.style.opacity = '';
+        }
+        timer.__acevoWasFinished = finished;
         var label = timer.querySelector('.acevo-reset-delta');
         var track = timer.querySelector('.acevo-delta-track');
         var bar = timer.querySelector('.acevo-delta-bar');
         track.style.display = delta === null || finished ? 'none' : 'block';
-        label.textContent = delta === null ? '' : (delta > 0 ? '+' : delta < 0 ? '-' : '') + (Math.abs(delta) / 1000).toFixed(3);
+        label.textContent = delta === null || finished ? '' : (delta > 0 ? '+' : delta < 0 ? '-' : '') + (Math.abs(delta) / 1000).toFixed(3);
         label.style.color = delta === null || delta === 0 ? 'white' : delta < 0 ? '#44EA78' : '#FF1418';
         var width = delta === null ? 0 : Math.min(Math.abs(delta) / 1000, 1) * 50;
         bar.style.width = width + '%';
@@ -116,7 +143,7 @@ const char pageScript[] = R"js(
                     super();
                     this.template = '<div class="component-body" style="display:flex;flex-direction:column;pointer-events:none;font-family:rajdhani-mono,sans-serif;font-size:1rem">' +
                         '<span>SNAPSHOT</span><span class="acevo-reset-value" style="font-size:1.4rem;font-weight:600"></span><span class="acevo-reset-best"></span>' +
-                        '<span class="acevo-reset-delta"></span><div class="acevo-delta-track" style="position:relative;width:8rem;height:.4rem;background:rgba(255,255,255,.2)">' +
+                        '<span class="acevo-reset-delta"></span><div class="acevo-delta-track" style="position:relative;width:15rem;height:.4rem;background:rgba(255,255,255,.2)">' +
                         '<div style="position:absolute;left:50%;height:100%;width:1px;background:white"></div>' +
                         '<div class="acevo-delta-bar" style="position:absolute;height:100%"></div></div></div>';
                 }
@@ -178,8 +205,9 @@ void OnFrameEnd(bool after)
         if ((epoch & 1) && (delta >> 32) == epoch)
             sprintf_s(deltaText, "%d", static_cast<int32_t>(static_cast<uint32_t>(delta)));
         char script[192];
-        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld,%lld,%s,%s);", elapsed, bestMs, deltaText,
-            (finished >> 1) == epoch && (finished & 1) ? "true" : "false");
+        const bool sameSession = (finished >> 2) == epoch;
+        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld,%lld,%s,%s,%s);", elapsed, bestMs, deltaText,
+            sameSession && (finished & 1) ? "true" : "false", sameSession && (finished & 2) ? "true" : "false");
         using ScriptFn = void (*)(void*, const char*);
         reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, script);
     }
@@ -227,9 +255,9 @@ void SetActiveResetDelta(uint64_t sessionEpoch, int32_t deltaMs)
     deltaState.store((sessionEpoch << 32) | static_cast<uint32_t>(deltaMs), std::memory_order_release);
 }
 
-void SetActiveResetFinished(uint64_t sessionEpoch, bool finished)
+void SetActiveResetFinished(uint64_t sessionEpoch, bool finished, bool improved)
 {
-    finishedState.store((sessionEpoch << 1) | (finished ? 1 : 0), std::memory_order_release);
+    finishedState.store((sessionEpoch << 2) | (finished ? 1 : 0) | (improved ? 2 : 0), std::memory_order_release);
 }
 
 void InstallActiveResetUi()

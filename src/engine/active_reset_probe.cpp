@@ -33,6 +33,7 @@ double nextPositionSample = 0;
 uint32_t finishedTime = 0;
 uint32_t bestTime = 0;
 bool finished = false;
+bool improved = false;
 struct TracePoint { Vec3 position; double elapsed; };
 std::vector<TracePoint> bestTrace;
 std::vector<TracePoint> currentTrace;
@@ -152,6 +153,7 @@ void ClearCheckpoint()
     checkpointId = {};
     gate = {};
     finished = false;
+    improved = false;
     bestTime = 0;
     bestTrace.clear();
     currentTrace.clear();
@@ -160,7 +162,7 @@ void ClearCheckpoint()
     SetActiveResetTimer(0, 0);
     SetActiveResetBest(0, 0);
     SetActiveResetDelta(0, 0);
-    SetActiveResetFinished(0, false);
+    SetActiveResetFinished(0, false, false);
 }
 
 void StepProbe(BYTE* controller, float delta, double time)
@@ -237,6 +239,7 @@ void StepProbe(BYTE* controller, float delta, double time)
                 if (restored) {
                     timerStart = time;
                     finished = false;
+                    improved = false;
                     gate.armed = gate.set;
                     gate.previousValid = false;
                     nextPositionSample = time;
@@ -297,6 +300,7 @@ void StepProbe(BYTE* controller, float delta, double time)
                     if (elapsed >= 0 && elapsed < 4294967295.0) {
                         finishedTime = uint32_t(elapsed);
                         finished = true;
+                        improved = bestTime && finishedTime < bestTime;
                         gate.armed = false;
                         if (bestTime && int64_t(finishedTime) - bestTime >= INT32_MIN &&
                             int64_t(finishedTime) - bestTime <= INT32_MAX)
@@ -325,7 +329,7 @@ void StepProbe(BYTE* controller, float delta, double time)
         }
         if (checkpoint.first) {
             const double elapsed = time - timerStart;
-            SetActiveResetFinished(epoch, finished);
+            SetActiveResetFinished(epoch, finished, improved);
             SetActiveResetTimer(epoch, finished ? finishedTime : elapsed > 0 && elapsed < 4294967295.0 ? static_cast<uint32_t>(elapsed) : 0);
         }
         return;

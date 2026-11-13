@@ -1,25 +1,10 @@
 #include "acevo/ui/active_reset_ui.h"
 #include "acevo/ui/cohtml_hooks.h"
-#include "acevo/core/code_patch.h"
 #include "acevo/core/log.h"
 
 namespace {
-using InputFn = void (*)(void*, void*, unsigned, bool, bool*);
-InputFn originalInput = nullptr;
-std::atomic<uint64_t> pending{0};
 std::atomic<bool> snapshotActive{false};
 void* mainView = nullptr;
-
-void OnInput(void* state, void* devices, unsigned action, bool switchDevice, bool* switched)
-{
-    originalInput(state, devices, action, switchDevice, switched);
-    if (action != 551 && action != 552) return;
-    DWORD pid = 0;
-    GetWindowThreadProcessId(GetForegroundWindow(), &pid);
-    if (pid != GetCurrentProcessId()) return;
-    pending.store((GetTickCount64() << 16) | action, std::memory_order_release);
-    Log("[active-reset] native action=%u", action);
-}
 
 const char pageScript[] = R"js(
 (function () {
@@ -148,45 +133,13 @@ void OnFrameEnd(bool after)
 }
 }
 
-unsigned TakeActiveResetAction()
-{
-    const auto value = pending.exchange(0, std::memory_order_acq_rel);
-    return value && GetTickCount64() - (value >> 16) < 500 ? unsigned(value & 0xffff) : 0;
-}
-
 void SetActiveResetSnapshot(bool active)
 {
     snapshotActive.store(active, std::memory_order_release);
 }
 
-bool InstallActiveResetUi(BYTE* exe)
+void InstallActiveResetUi()
 {
-    BYTE* entry = exe + 0x20e8890;
-    if (Fnv1a64(entry, 0x32) != 0x29273598846b8ddbull) return false;
-    BYTE* relay = AllocNear(entry, 64);
-    if (!relay) return false;
-    BYTE jump[14] = {0xff, 0x25, 0, 0, 0, 0};
-    auto target = reinterpret_cast<uintptr_t>(&OnInput);
-    memcpy(jump + 6, &target, sizeof target);
-    memcpy(relay, jump, sizeof jump);
-    memcpy(relay + 16, entry, 5);
-    target = reinterpret_cast<uintptr_t>(entry + 5);
-    memcpy(jump + 6, &target, sizeof target);
-    memcpy(relay + 21, jump, sizeof jump);
-    BYTE patch[5];
-    DWORD old = 0;
-    if (!EncodeRel32(0xe9, entry, relay, patch) || !VirtualProtect(relay, 64, PAGE_EXECUTE_READ, &old)) {
-        VirtualFree(relay, 0, MEM_RELEASE);
-        return false;
-    }
-    FlushInstructionCache(GetCurrentProcess(), relay, 64);
-    originalInput = reinterpret_cast<InputFn>(relay + 16);
-    if (!WriteCode(entry, patch, sizeof patch)) {
-        VirtualFree(relay, 0, MEM_RELEASE);
-        return false;
-    }
     AddCohtmlViewListener(&OnView);
     AddUiFrameEndListener(&OnFrameEnd);
-    Log("[active-reset] native input callback installed");
-    return true;
 }

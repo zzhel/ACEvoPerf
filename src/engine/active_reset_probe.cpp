@@ -1,4 +1,5 @@
 #include "acevo/engine/active_reset_probe.h"
+#include "acevo/engine/active_reset_input.h"
 #include "acevo/core/code_patch.h"
 #include "acevo/core/config.h"
 #include "acevo/core/log.h"
@@ -43,17 +44,18 @@ void StepProbe(BYTE* controller, float delta, double time)
         }
         return;
     }
-    if (controller != lastController) {
+    const bool controllerChanged = controller != lastController;
+    if (controllerChanged) {
         if (snapshotExperiment) ClearCheckpoint();
         Log("[active-reset-probe] physics callback reached, thread=%lu controller=%p dt=%.6f",
             GetCurrentThreadId(), controller, delta);
         lastController = controller;
-        TakeActiveResetAction();
     }
     DWORD foregroundPid = 0;
-    GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
+    const HWND foreground = GetForegroundWindow();
+    GetWindowThreadProcessId(foreground, &foregroundPid);
     const bool focused = foregroundPid == GetCurrentProcessId();
-    const unsigned action = TakeActiveResetAction();
+    const unsigned action = PollActiveResetInput(focused ? foreground : nullptr, controllerChanged);
     const bool saveDown = action == 551;
     const bool loadDown = action == 552;
     if (snapshotExperiment) {
@@ -154,16 +156,12 @@ void InstallActiveResetProbe()
     moveBlob = reinterpret_cast<MoveBlobFn>(exe + 0x1117800);
     snapshotExperiment = GetPrivateProfileIntW(L"probe", L"solo_snapshot_experiment", 0, ini.c_str()) != 0;
     expectedVtable = exe + 0x3231a70;
-    if (!InstallActiveResetUi(exe)) {
-        VirtualFree(relay, 0, MEM_RELEASE);
-        Log("[active-reset-probe] native input hook failed; reset disabled");
-        return;
-    }
     if (!WriteCode(call, patch, sizeof patch)) {
         VirtualFree(relay, 0, MEM_RELEASE);
         Log("[active-reset-probe] call patch failed");
         return;
     }
+    InstallActiveResetUi();
     Log("[active-reset-probe] installed for EVO 0.9.1; snapshot_experiment=%d", snapshotExperiment ? 1 : 0);
     if (snapshotExperiment)
         Log("[active-reset-probe] solo practice test only: bind Save/Restore snapshot in Controls; multiplayer exclusion is not implemented");

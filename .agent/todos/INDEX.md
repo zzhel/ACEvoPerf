@@ -12,7 +12,7 @@ links: [agent-index, spec-todos]
 
 foundation
 
-- [TODO-029-active-reset](TODO-029-active-reset.md), solo snapshot verified, controls rows persist, revised input and HUD integration awaiting live retest
+- [TODO-029-active-reset](TODO-029-active-reset.md), configurable controls and HUD are in place, session guard and one button interaction remain
 
 release
 

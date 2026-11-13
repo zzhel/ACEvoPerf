@@ -14,13 +14,43 @@ const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
+    window.__acevoSnapshotDelta = null;
+    function showSnapshotDelta(delta) {
+        window.__acevoSnapshotDelta = delta;
+        var hud = document.querySelector('ks-hud ks-delta');
+        if (!hud) return;
+        var container = hud.querySelector('.delta');
+        var original = hud.querySelector('.delta .value:not(.acevo-delta-value)');
+        if (!container || !original) return;
+        var value = hud.querySelector('.acevo-delta-value');
+        if (!value) {
+            value = document.createElement('div');
+            value.className = 'value acevo-delta-value';
+            value.style.position = 'absolute';
+            value.style.top = '0';
+            value.style.pointerEvents = 'none';
+            container.appendChild(value);
+        }
+        var season = window.SeasonInfo;
+        var active = delta !== null && !document.body.classList.contains('multiplayer') &&
+            !(season && season.mode === 'ClientCommandsMode_MULTIPLAYER');
+        if (!active) window.__acevoSnapshotDelta = null;
+        original.style.visibility = active ? 'hidden' : '';
+        value.style.display = active ? 'flex' : 'none';
+        if (!active) return;
+        value.textContent = (delta > 0 ? '+' : delta < 0 ? '-' : '') + (Math.abs(delta) / 1000).toFixed(3);
+        value.style.color = delta > 0 ? '#FF1418' : '#44EA78';
+        hud.classList.remove('no-predicted');
+        if (typeof hud.deltaTime === 'function') hud.deltaTime(Math.max(-1000, Math.min(1000, delta)), 0);
+    }
     window.__acevoActiveResetTimer = function (elapsed, best, delta) {
+        showSnapshotDelta(elapsed < 0 ? null : delta);
         var timer = document.querySelector('.acevo-reset-timer');
         var laps = document.querySelector('ks-hud ks-laptime .timing .laps');
         if (!timer && laps) {
             timer = document.createElement('div');
             timer.className = 'time acevo-reset-timer';
-            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span><span class="label acevo-reset-best"></span><span class="label acevo-reset-delta"></span>';
+            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span><span class="label acevo-reset-best"></span>';
             laps.appendChild(timer);
         }
         if (!timer) return;
@@ -35,9 +65,6 @@ const char pageScript[] = R"js(
         }
         timer.querySelector('.value').textContent = format(elapsed);
         timer.querySelector('.acevo-reset-best').textContent = best >= 0 ? 'BEST ' + format(best) : '';
-        var deltaLabel = timer.querySelector('.acevo-reset-delta');
-        deltaLabel.textContent = delta === null ? '' : (delta > 0 ? '+' : delta < 0 ? '-' : '') + (Math.abs(delta) / 1000).toFixed(3);
-        deltaLabel.style.color = delta === null || delta === 0 ? 'white' : delta < 0 ? '#90ee90' : '#ff8b8b';
     };
     window.__acevoActiveResetNotify = function (message) {
         var panel = document.querySelector('ks-notificationpanel');
@@ -99,6 +126,18 @@ const char pageScript[] = R"js(
     }
     function patch(name, elementClass) {
         var proto = elementClass.prototype;
+        if (name === 'ks-delta' && !proto.__acevoResetDelta) {
+            proto.__acevoResetDelta = true;
+            var loaded = proto.onTemplateLoaded;
+            proto.onTemplateLoaded = function () {
+                var process = this.filters.hud_delta_process;
+                this.filters.hud_delta_process = function (car) {
+                    var delta = window.__acevoSnapshotDelta;
+                    return process(delta === null ? car : Object.assign({}, car, {delta_time_ms_ui: delta}));
+                };
+                return loaded.apply(this, arguments);
+            };
+        }
         if (name === 'ks-page-settings-controls' && !proto.__acevoResetBindings) {
             proto.__acevoResetBindings = true;
             var refresh = proto.onDevicesChanged;
@@ -120,6 +159,8 @@ const char pageScript[] = R"js(
     };
     var controls = customElements.get('ks-page-settings-controls');
     if (controls) patch('ks-page-settings-controls', controls);
+    var delta = customElements.get('ks-delta');
+    if (delta) patch('ks-delta', delta);
 })();
 )js";
 

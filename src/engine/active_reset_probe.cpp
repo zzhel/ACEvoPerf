@@ -135,8 +135,8 @@ bool ReadPosition(BYTE* controller, const CarId& id, Vec3& position, Vec3& veloc
     bool valid = false;
     if (saved && sample.first && sample.last > sample.first) {
         Proto root{sample.first, sample.last}, body{}, matrix{}, speed{};
-        valid = Submessage(root, 1, body) && Submessage(body, 1, matrix) &&
-            Submessage(body, 2, speed) && ReadVector(matrix, 13, position) && ReadVector(speed, 1, velocity);
+        valid = Submessage(root, 1, body) && Submessage(body, 1, matrix) && ReadVector(matrix, 13, position);
+        if (valid && Submessage(body, 2, speed)) valid = ReadVector(speed, 1, velocity);
     }
     Blob empty = {};
     moveBlob(&sample, &empty);
@@ -218,6 +218,7 @@ void StepProbe(BYTE* controller, float delta, double time)
                     checkpointWorld = world;
                     checkpointId = id;
                     timerStart = time;
+                    nextPositionSample = time;
                     NotifyActiveReset(epoch, ActiveResetNotice::Saved);
                     Log("[active-reset-probe] saved checkpoint, bytes=%zu", size_t(checkpoint.last - checkpoint.first));
                 } else {
@@ -253,24 +254,29 @@ void StepProbe(BYTE* controller, float delta, double time)
             Vec3 position, velocity;
             const bool valid = car && checkpoint.first && ReadPosition(controller, id, position, velocity);
             const float speed = std::sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-            if (valid && speed >= 2.0f) {
+            const double elapsed = time - timerStart;
+            if (valid && speed >= 2.0f && !finished && elapsed >= 0 && elapsed < 4294967295.0) {
                 gate = {};
                 gate.position = position;
                 gate.direction = {velocity.x / speed, 0, velocity.z / speed};
                 gate.set = true;
-                bestTime = 0;
+                finishedTime = static_cast<uint32_t>(elapsed);
+                bestTime = finishedTime;
                 bestTrace.clear();
-                currentTrace.clear();
+                if (traceValid && currentTrace.size() >= 1 && currentTrace.size() < maxTracePoints) {
+                    currentTrace.push_back({position, elapsed});
+                    bestTrace = currentTrace;
+                }
                 SetActiveResetDelta(0, 0);
-                finished = false;
-                SetActiveResetBest(0, 0);
+                finished = true;
+                SetActiveResetBest(epoch, bestTime);
                 NotifyActiveReset(epoch, ActiveResetNotice::GateSaved);
-                Log("[active-reset-probe] gate set at %.2f %.2f %.2f", position.x, position.y, position.z);
+                Log("[active-reset-probe] gate set at %.2f %.2f %.2f, first time=%u ms, trace=%zu", position.x, position.y, position.z, bestTime, bestTrace.size());
             } else {
                 NotifyActiveReset(epoch, ActiveResetNotice::GateFailed);
             }
         }
-        if (gate.armed && !finished && car && time >= nextPositionSample) {
+        if (checkpoint.first && (!gate.set || gate.armed) && !finished && car && time >= nextPositionSample) {
             nextPositionSample = time + 50;
             Vec3 position, velocity;
             if (ReadPosition(controller, id, position, velocity)) {
@@ -279,11 +285,11 @@ void StepProbe(BYTE* controller, float delta, double time)
                     currentTrace.push_back({position, sampleElapsed});
                 else
                     traceValid = false;
-                PublishDelta(epoch, position, sampleElapsed);
+                if (gate.armed) PublishDelta(epoch, position, sampleElapsed);
                 const double x = position.x - gate.position.x, z = position.z - gate.position.z;
                 const double distance = x * gate.direction.x + z * gate.direction.z;
                 const double lateral = x * -gate.direction.z + z * gate.direction.x;
-                if (gate.previousValid && gate.previousDistance < 0 && distance >= 0 &&
+                if (gate.armed && gate.previousValid && gate.previousDistance < 0 && distance >= 0 &&
                     std::abs(lateral) <= 15 && std::abs(position.y - gate.position.y) <= 5) {
                     const double fraction = -gate.previousDistance / (distance - gate.previousDistance);
                     const double elapsed = gate.previousTime + fraction * (time - gate.previousTime) - timerStart;

@@ -9,6 +9,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 - A timer for each active reset attempt.
 - Set a finish gate and compare your best active reset time.
 - See how far ahead or behind your best active reset attempt you are.
+- Use the run that sets the finish gate as your first best time.
 
 ## 0.4.0 for Linux (2026-10-08)
 

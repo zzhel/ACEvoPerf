@@ -21,6 +21,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 - Restoring a snapshot pauses the game for a three-second countdown.
 - The snapshot countdown is easier to read.
 - Reduced HUD flicker when the snapshot countdown ends.
+- A brief black-screen fade before the snapshot countdown.
 
 ## 0.4.0 for Linux (2026-10-08)
 

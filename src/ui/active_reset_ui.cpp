@@ -19,6 +19,8 @@ const char pageScript[] = R"js(
     function clearCountdown() {
         if (!countdown) return;
         clearInterval(countdown.interval);
+        clearTimeout(countdown.fadeTimer);
+        if (countdown.fade) countdown.fade.remove();
         if (countdown.element) countdown.element.remove();
         countdown = null;
     }
@@ -53,25 +55,40 @@ const char pageScript[] = R"js(
                 clearCountdown();
                 return;
             }
-            var element = document.createElement('div');
-            element.style.cssText = 'position:fixed;top:38%;left:0;width:100%;text-align:center;color:white;font:700 8rem rajdhani-mono,sans-serif;text-shadow:0 2px 4px black;pointer-events:none;z-index:9999';
-            document.body.appendChild(element);
-            pending.element = element;
-            var end = Date.now() + 3000;
-            element.textContent = '3';
-            pending.interval = setInterval(function () {
+            var fade = document.createElement('div');
+            fade.style.cssText = 'position:fixed;inset:0;background:black;opacity:1;transition:opacity 500ms linear;pointer-events:none;z-index:10000';
+            document.body.appendChild(fade);
+            pending.fade = fade;
+            void fade.offsetWidth;
+            fade.style.opacity = '0';
+            pending.fadeTimer = setTimeout(function () {
+                if (countdown !== pending) return;
                 if (document.querySelector('ks-hud#mainHUD') !== hud || document.body.classList.contains('multiplayer')) {
                     clearCountdown();
                     return;
                 }
-                var remaining = end - Date.now();
-                if (remaining <= 0) {
-                    clearCountdown();
-                    resumeWithoutHudReload(hud);
-                } else {
-                    element.textContent = String(Math.ceil(remaining / 1000));
-                }
-            }, 50);
+                fade.remove();
+                pending.fade = null;
+                var element = document.createElement('div');
+                element.style.cssText = 'position:fixed;top:38%;left:0;width:100%;text-align:center;color:white;font:700 8rem rajdhani-mono,sans-serif;text-shadow:0 2px 4px black;pointer-events:none;z-index:9999';
+                document.body.appendChild(element);
+                pending.element = element;
+                var end = Date.now() + 3000;
+                element.textContent = '3';
+                pending.interval = setInterval(function () {
+                    if (document.querySelector('ks-hud#mainHUD') !== hud || document.body.classList.contains('multiplayer')) {
+                        clearCountdown();
+                        return;
+                    }
+                    var remaining = end - Date.now();
+                    if (remaining <= 0) {
+                        clearCountdown();
+                        resumeWithoutHudReload(hud);
+                    } else {
+                        element.textContent = String(Math.ceil(remaining / 1000));
+                    }
+                }, 50);
+            }, 500);
         });
     }
     window.__acevoActiveResetTimer = function (elapsed, best, delta, finished, improved) {

@@ -6,19 +6,20 @@
 namespace {
 std::atomic<uint64_t> pendingNotice{0};
 std::atomic<uint64_t> timerState{0};
+std::atomic<uint64_t> bestState{0};
 void* mainView = nullptr;
 
 const char pageScript[] = R"js(
 (function () {
     'use strict';
     if (window.__acevoActiveResetNotify) return;
-    window.__acevoActiveResetTimer = function (elapsed) {
+    window.__acevoActiveResetTimer = function (elapsed, best) {
         var timer = document.querySelector('.acevo-reset-timer');
         var laps = document.querySelector('ks-hud ks-laptime .timing .laps');
         if (!timer && laps) {
             timer = document.createElement('div');
             timer.className = 'time acevo-reset-timer';
-            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span>';
+            timer.innerHTML = '<span class="label">SNAPSHOT</span><span class="value"></span><span class="label acevo-reset-best"></span>';
             laps.appendChild(timer);
         }
         if (!timer) return;
@@ -27,11 +28,12 @@ const char pageScript[] = R"js(
             (season && season.mode === 'ClientCommandsMode_MULTIPLAYER');
         timer.style.display = hidden ? 'none' : 'flex';
         if (hidden) return;
-        var minutes = Math.floor(elapsed / 60000);
-        var seconds = Math.floor(elapsed / 1000) % 60;
-        var millis = elapsed % 1000;
-        timer.querySelector('.value').textContent = String(minutes).padStart(2, '0') + ':' +
-            String(seconds).padStart(2, '0') + '.' + String(millis).padStart(3, '0');
+        function format(value) {
+            return String(Math.floor(value / 60000)).padStart(2, '0') + ':' +
+                String(Math.floor(value / 1000) % 60).padStart(2, '0') + '.' + String(value % 1000).padStart(3, '0');
+        }
+        timer.querySelector('.value').textContent = format(elapsed);
+        timer.querySelector('.acevo-reset-best').textContent = best >= 0 ? 'BEST ' + format(best) : '';
     };
     window.__acevoActiveResetNotify = function (message) {
         var panel = document.querySelector('ks-notificationpanel');
@@ -50,7 +52,8 @@ const char pageScript[] = R"js(
     };
     var definitions = [
         {number: 551, action: 'InputAction_AIDev_SaveSnapshot', name: 'AIDev SaveSnapshot', label: 'Active reset: Save snapshot'},
-        {number: 552, action: 'InputAction_AIDev_LoadSnapshot', name: 'AIDev LoadSnapshot', label: 'Active reset: Restore snapshot'}
+        {number: 552, action: 'InputAction_AIDev_LoadSnapshot', name: 'AIDev LoadSnapshot', label: 'Active reset: Restore snapshot'},
+        {number: 553, action: 'InputAction_AIDev_StartRecording', name: 'AIDev StartRecording', label: 'Active reset: Set finish gate'}
     ];
     function matches(action, definition) {
         return action && (action.input === definition.action || action.input === definition.number || action.number === definition.number);
@@ -136,8 +139,11 @@ void OnFrameEnd(bool after)
         const uint64_t epoch = ActiveResetSessionEpoch();
         const int64_t elapsed = (epoch & 1) && (state >> 32) == epoch
             ? static_cast<int64_t>(static_cast<uint32_t>(state)) : -1;
+        const uint64_t best = bestState.load(std::memory_order_acquire);
+        const int64_t bestMs = (epoch & 1) && (best >> 32) == epoch
+            ? static_cast<int64_t>(static_cast<uint32_t>(best)) : -1;
         char script[160];
-        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld);", elapsed);
+        sprintf_s(script, "window.__acevoActiveResetTimer && window.__acevoActiveResetTimer(%lld,%lld);", elapsed, bestMs);
         using ScriptFn = void (*)(void*, const char*);
         reinterpret_cast<ScriptFn>((*static_cast<void***>(mainView))[cohtml_slot::kViewExecuteScript])(mainView, script);
     }
@@ -153,6 +159,8 @@ void OnFrameEnd(bool after)
         case ActiveResetNotice::NoSnapshot: message = "No snapshot saved"; break;
         case ActiveResetNotice::SaveFailed: message = "Could not save snapshot"; break;
         case ActiveResetNotice::RestoreFailed: message = "Could not restore snapshot"; break;
+        case ActiveResetNotice::GateSaved: message = "Finish gate set"; break;
+        case ActiveResetNotice::GateFailed: message = "Save a snapshot and drive forward to set a gate"; break;
     }
     if (!message) return;
 
@@ -171,6 +179,11 @@ void NotifyActiveReset(uint64_t sessionEpoch, ActiveResetNotice notice)
 void SetActiveResetTimer(uint64_t sessionEpoch, uint32_t elapsedMs)
 {
     timerState.store((sessionEpoch << 32) | elapsedMs, std::memory_order_release);
+}
+
+void SetActiveResetBest(uint64_t sessionEpoch, uint32_t elapsedMs)
+{
+    bestState.store((sessionEpoch << 32) | elapsedMs, std::memory_order_release);
 }
 
 void InstallActiveResetUi()

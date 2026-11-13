@@ -7,6 +7,7 @@ Every version of ACEvoPerf and what changed in it, newest first.
 ### Added
 
 - A timer for each active reset attempt.
+- Set a finish gate and compare your best active reset time.
 
 ## 0.4.0 for Linux (2026-10-08)
 

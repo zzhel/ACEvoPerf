@@ -14,6 +14,7 @@
 namespace {
 constexpr unsigned saveAction = 551;
 constexpr unsigned restoreAction = 552;
+constexpr unsigned gateAction = 553;
 constexpr unsigned maxConfigSize = 1024 * 1024;
 
 // The binding files are protobuf messages. Read only their binding fields and skip unrelated settings.
@@ -104,7 +105,7 @@ bool ReadBinding(Wire bytes, bool keyboard, std::vector<Binding>& bindings)
         if (field == 3 && type == 0) binding.requireShift = value != 0;
         return true;
     });
-    if (valid && (binding.action == saveAction || binding.action == restoreAction))
+    if (valid && (binding.action == saveAction || binding.action == restoreAction || binding.action == gateAction))
         bindings.push_back(std::move(binding));
     return valid;
 }

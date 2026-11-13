@@ -9,7 +9,10 @@ enum class ActiveResetNotice : uint64_t {
     NoSnapshot,
     SaveFailed,
     RestoreFailed,
+    GateSaved,
+    GateFailed,
 };
 
 void NotifyActiveReset(uint64_t sessionEpoch, ActiveResetNotice notice);
 void SetActiveResetTimer(uint64_t sessionEpoch, uint32_t elapsedMs);
+void SetActiveResetBest(uint64_t sessionEpoch, uint32_t elapsedMs);
